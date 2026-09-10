@@ -447,7 +447,27 @@ const API = (() => {
     creditoFoto(especieCarpeta) {
       if (!demo() || !especieCarpeta) return null;
       const f = (typeof FOTOS_DEMO !== 'undefined') && FOTOS_DEMO[especieCarpeta];
-      return f && f.licencia ? { autor: f.autor, licencia: f.licencia } : null;
+      return f && f.licencia
+        ? { autor: f.autor, licencia: f.licencia, pagina: f.pagina } : null;
+    },
+
+    /* Todas las fotos que la app puede llegar a mostrar, con su atribucion.
+     * Alimenta la pantalla de créditos. Con servidor se arma pidiendo la
+     * ficha de cada especie; en demostracion sale del archivo embebido. */
+    async creditos(especies) {
+      if (demo()) {
+        if (typeof FOTOS_DEMO === 'undefined') return [];
+        return Object.entries(FOTOS_DEMO).map(([k, v]) => ({
+          especie: k.replace(/_/g, ' '), autor: v.autor,
+          licencia: v.licencia, pagina: v.pagina,
+        }));
+      }
+      const fichas = await Promise.all((especies || []).map((e) =>
+        this.especie(e).catch(() => null)));
+      return fichas.filter((f) => f && f.licencia).map((f) => ({
+        especie: f.nombre_comun, autor: f.autor, licencia: f.licencia,
+        pagina: f.descripcion_url,
+      }));
     },
 
     async especie(nombre) {

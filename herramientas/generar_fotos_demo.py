@@ -53,6 +53,13 @@ def pedir(parametros):
         return json.loads(r.read().decode('utf-8'))
 
 
+# Misma lista blanca que servidor/especies.py de tector-hub-servidor. Si la
+# licencia no se reconoce, la foto no se incluye: "esta en Wikipedia" no
+# quiere decir "se puede reusar".
+LICENCIAS_LIBRES = re.compile(
+    r'^(cc0|cc[ -]by([ -]sa)?[ -]\d|public domain|pdm|no restrictions)', re.I)
+
+
 def limpiar(texto):
     if not texto:
         return None
@@ -80,15 +87,16 @@ def resolver(nombre):
 
 def licencia(archivo):
     if not archivo:
-        return None, None
+        return None, None, None
     datos = pedir({'action': 'query', 'format': 'json',
                    'titles': f'File:{archivo}',
-                   'prop': 'imageinfo', 'iiprop': 'extmetadata'})
+                   'prop': 'imageinfo', 'iiprop': 'extmetadata|url'})
     for _, pagina in ((datos.get('query') or {}).get('pages') or {}).items():
         meta = (pagina.get('imageinfo') or [{}])[0].get('extmetadata') or {}
         return (limpiar((meta.get('Artist') or {}).get('value')),
-                limpiar((meta.get('LicenseShortName') or {}).get('value')))
-    return None, None
+                limpiar((meta.get('LicenseShortName') or {}).get('value')),
+                (pagina.get('imageinfo') or [{}])[0].get('descriptionurl'))
+    return None, None, None
 
 
 def bajar(url):
@@ -106,13 +114,16 @@ def main():
             if not url:
                 print(f'  sin foto  {nombre}')
                 continue
+            autor, lic, pagina = licencia(archivo)
+            if not (lic and LICENCIAS_LIBRES.match(lic.strip())):
+                print(f'  DESCARTADA {nombre}: licencia {lic or "desconocida"}')
+                continue
             datos = bajar(url)
-            autor, lic = licencia(archivo)
             ext = Path(urllib.parse.urlparse(url).path).suffix.lower()
             mime = {'.png': 'image/png', '.webp': 'image/webp'}.get(ext, 'image/jpeg')
             fotos[nombre] = {
                 'src': f'data:{mime};base64,{base64.b64encode(datos).decode()}',
-                'autor': autor, 'licencia': lic,
+                'autor': autor, 'licencia': lic, 'pagina': pagina,
             }
             total += len(datos)
             print(f'  {len(datos)//1024:>4} KB  {nombre}  ({lic})')

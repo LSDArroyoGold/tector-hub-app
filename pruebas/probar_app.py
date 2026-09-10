@@ -255,6 +255,21 @@ GUION = r"""
     !document.querySelector('.fila[data-ir="/servidor"]'));
   T('cuenta muestra el credito del laboratorio',
     hay('Laboratorio de Sistemas Dinámicos'));
+  T('el credito nombra al departamento', hay('Depto. de Física, FCEyN, UBA'));
+
+  // Atribucion de las fotos: es una obligacion de las licencias CC, no un
+  // adorno. Tiene que estar y tiene que poder llegarse al original.
+  document.querySelector('[data-accion="creditos"]').click();
+  await dormir(900);
+  T('hay una pantalla de créditos de las fotos',
+    document.body.textContent.includes('Wikimedia Commons'));
+  const enlaces = document.querySelectorAll('.hoja a[href*="commons.wikimedia"], .hoja a[href*="wikipedia"]');
+  T('cada foto enlaza a su ficha original', enlaces.length >= 5,
+    enlaces.length + ' enlaces');
+  T('los créditos nombran autor y licencia',
+    document.querySelector('.hoja').textContent.includes('CC BY'));
+  document.querySelector('.velo').click();
+  await dormir(400);
 
   await irA('#/apariencia');
   T('apariencia ofrece los 3 temas',

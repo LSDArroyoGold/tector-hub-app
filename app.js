@@ -388,8 +388,13 @@ const App = (() => {
   function creditoFotoHTML(det) {
     const c = API.creditoFoto(det.especie_carpeta);
     if (!c) return '';
-    return `<div class="credito-foto">Foto: ${esc(c.autor || 'autor no indicado')}
-      · ${esc(c.licencia)} · Wikimedia Commons</div>`;
+    const texto = `Foto: ${esc(c.autor || 'autor no indicado')} · ${esc(c.licencia)}`;
+    // Enlace a la ficha del archivo en Commons: ahi estan el autor, el texto
+    // completo de la licencia y el original. Las licencias CC piden poder
+    // llegar a eso, no solo nombrarlo.
+    return `<div class="credito-foto">${c.pagina
+      ? `<a href="${esc(c.pagina)}" target="_blank" rel="noopener">${texto} ↗</a>`
+      : texto} · Wikimedia Commons</div>`;
   }
 
   function pillConfianza(c) {
@@ -453,7 +458,8 @@ const App = (() => {
       <div class="credito grande" style="max-width:340px">
         <span>Desarrollado por el</span>
         <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
-        <span>FCEyN — UBA</span>
+        <span>Laboratorio de Sistemas Dinámicos<br>
+          Depto. de Física, FCEyN, UBA</span>
       </div>
     </div></div>`;
 
@@ -729,6 +735,7 @@ const App = (() => {
         <button class="b sec chica" data-accion="instalar" ${E.prompt ? '' : 'hidden'}>
           Instalar en el teléfono</button>
         <div class="t cero">
+          <button class="fila" data-accion="creditos"><span class="crece">Créditos de las fotos</span><span class="chev">›</span></button>
           <button class="fila" data-accion="diagnostico"><span class="crece">Estado de la app</span>
             <span class="mini">${E.instalada ? 'instalada' : 'en el navegador'}</span><span class="chev">›</span></button>
           <button class="fila" data-ir="/apariencia"><span class="crece">Apariencia</span><span class="chev">›</span></button>
@@ -738,7 +745,8 @@ const App = (() => {
         <div class="credito" style="margin-top:22px">
           <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
           <span>Desarrollado por el<br>
-            Laboratorio de Sistemas Dinámicos<br><b>FCEyN — UBA</b></span></div>
+            <b>Laboratorio de Sistemas Dinámicos</b><br>
+            Depto. de Física, FCEyN, UBA</span></div>
       </div>${barra('cuenta')}</div>`;
   };
 
@@ -1487,6 +1495,29 @@ const App = (() => {
       E.prompt = null;
       if (r.outcome === 'accepted') toast('Instalando…');
       pintar();
+      return;
+    }
+
+    if (nombre === 'creditos') {
+      const especies = [...new Set(
+        (E.datos.dets || []).map((d) => d.especie_carpeta))];
+      const lista = await API.creditos(especies);
+      await hoja(`<h2>Créditos de las fotos</h2>
+        <p class="chico">Las fotos de especies vienen de Wikimedia Commons.
+          Son de uso libre, incluso comercial, pero <b>piden citar al autor y
+          la licencia</b>: por eso están acá y debajo de cada foto.</p>
+        ${lista.length ? lista.map((c) => `
+          <div style="padding:9px 2px;border-top:1px solid var(--rule)">
+            <div style="font-weight:600;font-size:13.5px">${esc(c.especie)}</div>
+            <div class="mini">${esc(c.autor || 'autor no indicado')} · ${esc(c.licencia)}</div>
+            ${c.pagina ? `<a class="mini" href="${esc(c.pagina)}" target="_blank"
+              rel="noopener">Ver el original en Commons ↗</a>` : ''}
+          </div>`).join('')
+        : '<p class="mini">Todavía no se cargó ninguna foto.</p>'}
+        <p class="mini" style="margin-top:12px">Las que están bajo CC BY-SA
+          piden además que, si alguien <i>modifica</i> la foto, publique el
+          resultado con la misma licencia. Mostrarlas sin retocar, como hace
+          la app, no obliga a nada de eso.</p>`);
       return;
     }
 
