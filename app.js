@@ -712,19 +712,129 @@ const App = (() => {
       </div>${barra('inicio')}</div>`;
   };
 
+  /* EL EXPLORADOR TIENE TRES VISTAS, NO UNA
+   *
+   * El selector de orden ofrecia seis criterios y solo dos hacian algo: los
+   * otros cuatro no tienen sentido sobre una lista de carpetas de fecha.
+   * "Por especie" o "por confianza" no son formas de ordenar fechas, son
+   * formas distintas de agrupar las detecciones.
+   *
+   * Asi que el selector cambia la VISTA:
+   *   fecha_desc / fecha_asc    carpetas por dia
+   *   especie_az / especie_top  carpetas por especie, juntando todos los dias
+   *   hora / confianza          lista plana de detecciones
+   */
+  const ORDENES = [
+    ['fecha_desc', 'Fecha, más reciente primero'],
+    ['fecha_asc', 'Fecha, más antigua primero'],
+    ['especie_az', 'Especie, A–Z'],
+    ['especie_top', 'Especie, más detectada'],
+    ['hora', 'Hora del día'],
+    ['confianza', 'Confianza'],
+  ];
+
+  function ordenActual() {
+    return E.datos.orden || API.guardado.leer('tector.orden') || 'fecha_desc';
+  }
+
+  function porEspecie(todas) {
+    const g = {};
+    todas.forEach((d) => {
+      g[d.especie_carpeta] = g[d.especie_carpeta] || {
+        carpeta: d.especie_carpeta, nombre: nombreLindo(d),
+        cientifico: d.nombre_cientifico, cuantas: 0, ultima: '',
+      };
+      const e = g[d.especie_carpeta];
+      e.cuantas++;
+      const sello = d.fecha + ' ' + d.hora;
+      if (sello > e.ultima) e.ultima = sello;
+    });
+    return Object.values(g);
+  }
+
   P.cantos = () => {
     const d = activo();
-    const fechas = E.datos.fechas || [];
+    const todas = E.datos.todas || [];
+    const orden = ordenActual();
+    const etiqueta = (ORDENES.find((o) => o[0] === orden) || [])[1] || '';
+
+    let cuerpo;
+    if (!todas.length) {
+      cuerpo = '<div class="vacio"><p class="chico">Todavía no hay detecciones.</p></div>';
+    } else if (orden.startsWith('fecha')) {
+      const fechas = [...new Set(todas.map((x) => x.fecha))].sort();
+      if (orden === 'fecha_desc') fechas.reverse();
+      const cuenta = {};
+      todas.forEach((x) => { cuenta[x.fecha] = (cuenta[x.fecha] || 0) + 1; });
+      cuerpo = fechas.map((f) => `
+        <button class="fila t" style="margin-bottom:8px;border-radius:11px"
+          data-fecha="${esc(f)}">
+          <div class="crece"><div class="mono" style="font-weight:600">${esc(f)}</div>
+            <div class="mini">${cuenta[f]} detecciones</div></div>
+          <span class="chev">›</span></button>`).join('');
+    } else if (orden.startsWith('especie')) {
+      const grupos = porEspecie(todas);
+      if (orden === 'especie_az') {
+        grupos.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      } else {
+        grupos.sort((a, b) => b.cuantas - a.cuantas);
+      }
+      cuerpo = `<div class="t cero">${grupos.map((g) => `
+        <button class="fila" data-todo-especie="${esc(g.carpeta)}">
+          ${foto({ especie_carpeta: g.carpeta, especie: g.nombre }, 'chica')}
+          <div class="crece"><div style="font-weight:600">${esc(g.nombre)}</div>
+            <div class="mini">${g.cuantas} ${g.cuantas === 1 ? 'detección' : 'detecciones'}
+              · última ${esc(g.ultima.slice(0, 10))}</div></div>
+          <span class="chev">›</span></button>`).join('')}</div>`;
+    } else {
+      const lista = [...todas];
+      if (orden === 'hora') {
+        // Por hora del dia, juntando todos los dias: sirve para ver a que
+        // hora canta cada especie, no para recorrer un dia.
+        lista.sort((a, b) => a.hora.localeCompare(b.hora));
+      } else {
+        lista.sort((a, b) => b.confianza - a.confianza);
+      }
+      cuerpo = `<div class="t cero">${lista.slice(0, 300).map((x) => `
+        <button class="fila" data-det="${esc(x.ruta)}">
+          ${foto(x, 'chica')}
+          <div class="crece"><div style="font-weight:600">${esc(nombreLindo(x))}</div>
+            <div class="mini mono">${esc(x.fecha)} · ${esc(x.hora)}</div></div>
+          ${pillConfianza(x.confianza)}<span class="chev">›</span></button>`).join('')}
+        </div>${lista.length > 300
+          ? '<p class="mini">Se muestran las primeras 300 de ' + lista.length + '.</p>'
+          : ''}`;
+    }
+
     return `<div class="pantalla con-barra">${cinta()}
       ${encabezado('Cantos', { sub: d ? (d.apodo || 'Tector ' + d.serie) : '',
-        derecha: `<button class="pill neu" style="border:0" data-accion="ordenar">Orden ⌄</button>` })}
+        derecha: `<button class="pill neu" style="border:0;cursor:pointer"
+          data-accion="ordenar">${esc(etiqueta.split(',')[0])} ⌄</button>` })}
       <div class="scroll">
-        ${!fechas.length ? '<div class="vacio"><p class="chico">Todavía no hay detecciones.</p></div>'
-          : fechas.map((f) => `<button class="fila t" style="margin-bottom:8px;border-radius:11px"
-              data-fecha="${esc(f)}">
-              <div class="crece"><div class="mono" style="font-weight:600">${esc(f)}</div>
-                <div class="mini">${E.datos.porFecha?.[f] ?? ''} detecciones</div></div>
-              <span class="chev">›</span></button>`).join('')}
+        <p class="mini" style="margin:12px 2px 8px">${esc(etiqueta)}</p>
+        ${cuerpo}
+      </div>${barra('cantos')}</div>`;
+  };
+
+  P.especieTodas = (carpeta) => {
+    const dets = E.datos.dets || [];
+    const info = dets[0] || {};
+    return `<div class="pantalla con-barra">
+      ${encabezado(nombreLindo(info) || carpeta.replace(/_/g, ' '),
+        { volver: '/cantos', sub: `${dets.length} detecciones · todos los días` })}
+      <div class="scroll">
+        ${info.nombre_cientifico ? `<p class="cient" style="margin:12px 0 4px">${esc(info.nombre_cientifico)}</p>` : ''}
+        ${dets.map((x) => `<div class="t">
+          <div class="entre"><span class="mono" style="font-weight:600">${esc(x.fecha)} ${esc(x.hora)}</span>
+            ${pillConfianza(x.confianza)}</div>
+          ${ondaHTML(x.ruta)}
+          <div class="entre" style="margin-top:8px;gap:7px">
+            <span class="mini mono" style="word-break:break-all;font-size:9.5px;flex:1">
+              ${esc(x.ruta.split('/').pop())}</span>
+            <button class="ico" data-bajar="${esc(x.ruta)}" aria-label="Descargar">${IC.bajar}</button>
+            <button class="ico" data-compartir="${esc(x.ruta)}" aria-label="Compartir">${IC.compartir}</button>
+            <button class="ico" data-reportar="${esc(x.ruta)}" aria-label="Reportar un problema">${IC.reportar}</button>
+          </div></div>`).join('')}
       </div>${barra('cantos')}</div>`;
   };
 
@@ -1383,11 +1493,9 @@ const App = (() => {
         E.datos.resumen = await API.resumen();
         app.innerHTML = P.todos();
       } else if (ruta === '/cantos') {
-        const [fechas, todas] = await Promise.all([
-          API.fechas(serie), API.detecciones(serie, { limite: 1000 }),
-        ]);
-        E.datos.fechas = fechas;
-        E.datos.porFecha = todas.reduce((a, d) => (a[d.fecha] = (a[d.fecha] || 0) + 1, a), {});
+        // Las tres vistas del explorador salen del mismo listado; cambiar de
+        // orden no vuelve a pedir nada.
+        E.datos.todas = await API.detecciones(serie, { limite: 2000 });
         app.innerHTML = P.cantos();
       } else if (partes[0] === 'cantos' && partes.length === 2) {
         const fecha = decodeURIComponent(partes[1]);
@@ -1400,6 +1508,10 @@ const App = (() => {
         });
         E.datos.grupos = Object.values(g).sort((a, b) => b.cuantas - a.cuantas);
         app.innerHTML = P.cantosFecha(fecha);
+      } else if (partes[0] === 'especie' && partes.length === 2) {
+        const carpeta = decodeURIComponent(partes[1]);
+        E.datos.dets = await API.detecciones(serie, { especie: carpeta, limite: 1000 });
+        app.innerHTML = P.especieTodas(carpeta);
       } else if (partes[0] === 'cantos' && partes.length === 3) {
         const fecha = decodeURIComponent(partes[1]);
         const especie = decodeURIComponent(partes[2]);
@@ -1520,12 +1632,15 @@ const App = (() => {
 
     const det = t.closest('[data-det]');
     if (det) {
-      const d = (E.datos.dets || []).find((x) => x.ruta === det.dataset.det);
+      const donde = (E.datos.dets || []).concat(E.datos.todas || []);
+      const d = donde.find((x) => x.ruta === det.dataset.det);
       if (d) ir(`/cantos/${encodeURIComponent(d.fecha)}/${encodeURIComponent(d.especie_carpeta)}`);
       return;
     }
     const f = t.closest('[data-fecha]');
     if (f) { ir('/cantos/' + encodeURIComponent(f.dataset.fecha)); return; }
+    const todoEsp = t.closest('[data-todo-especie]');
+    if (todoEsp) { ir('/especie/' + encodeURIComponent(todoEsp.dataset.todoEspecie)); return; }
     const esp = t.closest('[data-especie]');
     if (esp) {
       ir(`/cantos/${encodeURIComponent(E.ruta.split('/')[2])}/${encodeURIComponent(esp.dataset.especie)}`);
@@ -1891,19 +2006,18 @@ const App = (() => {
       return;
     }
     if (nombre === 'ordenar') {
+      const actual = ordenActual();
       const elegido = await hoja(`<h2>Ordenar por</h2>
-        ${[['fecha_desc', 'Fecha, más reciente primero'], ['fecha_asc', 'Fecha, más antigua primero'],
-           ['especie_az', 'Especie, A–Z'], ['especie_top', 'Especie, más detectada'],
-           ['hora', 'Hora del día'], ['confianza', 'Confianza']]
-          .map(([v, txt]) => `<button class="opcion" data-elegir="${v}"
-            aria-selected="${(E.datos.orden || 'fecha_desc') === v}">
-            <span class="tit">${txt}</span></button>`).join('')}
+        ${ORDENES.map(([v, txt]) => `<button class="opcion" data-elegir="${v}"
+            aria-selected="${actual === v}"><span class="tit">${txt}</span>
+            ${actual === v ? '' : ''}</button>`).join('')}
         <p class="mini" style="margin:10px 2px 0">Los seis criterios salen del
-          nombre del archivo, que es donde el sistema guarda cada detección.</p>`);
+          nombre del archivo, que es donde el sistema guarda cada detección.
+          Los tres pares cambian cómo se agrupa: por día, por especie, o
+          todas las detecciones en una lista.</p>`);
       if (!elegido) return;
       E.datos.orden = elegido;
-      E.datos.fechas = elegido === 'fecha_asc'
-        ? [...E.datos.fechas].sort() : [...E.datos.fechas].sort().reverse();
+      API.guardado.poner('tector.orden', elegido);
       $('#app').innerHTML = P.cantos(); enlazar();
       return;
     }

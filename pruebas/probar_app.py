@@ -223,6 +223,49 @@ GUION = r"""
     }
   }
 
+  // El selector de orden tiene que CAMBIAR algo, no solo marcarse. Antes
+  // ofrecia seis criterios y solo dos hacian efecto.
+  await irA('#/cantos');
+  const verOrden = async (id) => {
+    document.querySelector('[data-accion="ordenar"]').click();
+    await dormir(600);
+    document.querySelector(`.hoja [data-elegir="${id}"]`).click();
+    await dormir(900);
+  };
+  await verOrden('especie_top');
+  T('ordenar por especie agrupa por especie, no por fecha',
+    document.querySelectorAll('[data-todo-especie]').length > 0
+    && document.querySelectorAll('[data-fecha]').length === 0,
+    document.querySelectorAll('[data-todo-especie]').length + ' especies');
+  const prim2 = document.querySelector('[data-todo-especie] .mini');
+  T('y muestra cuántas detecciones tiene cada una',
+    !!prim2 && /\d+ detecciones/.test(prim2.textContent), prim2 && limpio(prim2.textContent));
+
+  await verOrden('confianza');
+  T('ordenar por confianza da una lista plana',
+    document.querySelectorAll('[data-det]').length > 0
+    && document.querySelectorAll('[data-fecha]').length === 0);
+  const pills = [...document.querySelectorAll('[data-det] .pill')]
+    .map((x) => parseInt(x.textContent, 10));
+  T('y viene de mayor a menor confianza',
+    pills.length > 2 && pills.every((v, i) => i === 0 || pills[i - 1] >= v),
+    pills.slice(0, 5).join(' '));
+
+  await verOrden('hora');
+  const horas = [...document.querySelectorAll('[data-det] .mono')]
+    .map((x) => (x.textContent.split('·')[1] || '').trim()).filter(Boolean);
+  T('ordenar por hora del día ordena por hora',
+    horas.length > 2 && horas.every((v, i) => i === 0 || horas[i - 1] <= v),
+    horas.slice(0, 4).join(' '));
+
+  await verOrden('fecha_asc');
+  T('volver a fecha muestra carpetas de día otra vez',
+    document.querySelectorAll('[data-fecha]').length > 0);
+  const fs = [...document.querySelectorAll('[data-fecha]')].map((x) => x.dataset.fecha);
+  T('y de la más antigua a la más reciente',
+    fs.every((v, i) => i === 0 || fs[i - 1] <= v), fs.slice(0, 3).join(' '));
+  await verOrden('fecha_desc');
+
   // --- estadisticas ---
   await irA('#/datos');
   T('el histograma tiene 24 barras',

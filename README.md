@@ -169,6 +169,21 @@ automático.
 
 ---
 
+## El explorador tiene tres vistas
+
+El selector de orden no ordena una lista: **cambia cómo se agrupan** las
+detecciones. «Por especie» o «por confianza» no son formas de ordenar
+carpetas de fecha, son formas distintas de mirar lo mismo.
+
+| Criterio | Qué muestra |
+|---|---|
+| Fecha, reciente / antigua | Carpetas por día |
+| Especie, A–Z / más detectada | Carpetas por especie, juntando todos los días |
+| Hora del día / Confianza | Todas las detecciones en una lista plana |
+
+Los seis salen del nombre del archivo, que es donde el sistema guarda cada
+detección. La elección se recuerda entre sesiones.
+
 ## Reportar detecciones equivocadas
 
 Cada detección tiene, además de descargar y compartir, un botón para avisar
@@ -192,8 +207,6 @@ eso en un selector de aves no ayuda.
 - **Notificaciones push.** El panel guarda las preferencias, pero todavía no
   hay quién las envíe: hace falta un *push service* del lado del servidor. Las
   preferencias quedan listas para cuando exista.
-- **Ordenamiento del explorador.** Los seis criterios están definidos y el
-  selector funciona; solo el orden por fecha está aplicado de verdad.
 - **Probarla en el S10.** Está escrita para Chrome en Android y verificada en
   escritorio, pero todavía no corrió en el teléfono.
 
