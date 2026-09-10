@@ -153,6 +153,9 @@ a{color:var(--terra-ink)}
 .pto.grabando{background:var(--mal);box-shadow:0 0 0 3px var(--mal-soft)}
 .pto.espera{background:var(--teal);opacity:.6}
 .pto.mudo{background:var(--avi)}
+/* Equipo con software 1.1: anda, pero no informa su estado. Ni verde de
+   "todo bien" ni ambar de "algo pasa": gris de "no se sabe". */
+.pto.legado{background:var(--mut)}
 .est{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--mut)}
 
 .pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;

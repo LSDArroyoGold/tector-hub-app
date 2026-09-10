@@ -295,6 +295,35 @@ GUION = r"""
     T('muestra la linea real del log', hay('Próxima ventana'));
   }
 
+  // --- asistente en modo guiado (el que corre servido por HTTPS) ---
+  // Se fuerza con ?guiado=1 porque la prueba corre desde file://.
+  history.replaceState(null, '', location.pathname + '?guiado=1');
+  // Salir del asistente antes de volver a entrar: mientras el hash siga
+  // siendo #/sync la app conserva el estado del asistente anterior, y se
+  // quedaria mostrando la pantalla de exito de la corrida de arriba.
+  await irA('#/cuenta', 600);
+  await irA('#/sync', 700);
+  document.querySelector('[data-accion="buscar"]').click();
+  await dormir(900);
+  T('el modo guiado pide el numero de serie', !!document.getElementById('serie'));
+  T('explica que la red no tiene contrasena', hay('No tiene contraseña'));
+  const inv = document.getElementById('serie');
+  if (inv) {
+    inv.value = '99';
+    document.querySelector('[data-accion="confirmarSerie"]').click();
+    await dormir(500);
+    T('rechaza un numero de serie invalido', hay('cuatro dígitos'));
+    inv.value = '4417';
+    document.querySelector('[data-accion="confirmarSerie"]').click();
+    await dormir(700);
+    T('pasa a la pantalla de la pagina del Tector', hay('Abrir la página del Tector'));
+    const enlace = document.querySelector('a[href^="http://192.168.4.1"]');
+    T('el enlace apunta al portal por navegacion, no por fetch',
+      !!enlace && enlace.target === '_blank', enlace && enlace.getAttribute('href'));
+    T('explica por que este paso va afuera', hay('servida por HTTPS'));
+    T('ofrece verificar al volver', !!document.querySelector('[data-accion="verificarGuiado"]'));
+  }
+
   } catch (e) {
     R.push('');
     R.push('EXCEPCION: ' + (e && e.stack ? e.stack : e));

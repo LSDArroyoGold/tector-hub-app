@@ -28,21 +28,35 @@ Las razones, en orden de peso:
 3. **Se actualiza sola.** El próximo arranque ya trae los cambios; nadie tiene
    que reinstalar nada en su teléfono.
 
-### Lo que un navegador no puede hacer
+### El asistente de sincronización tiene dos modos
 
-**Cambiar de red WiFi.** No hay API web para eso, y el asistente de
-sincronización necesita que el teléfono se pase a la red del Tector y después
-vuelva.
+Un navegador no puede cambiar de red WiFi —no hay API para eso— así que ese
+paso siempre lo hace la persona. Lo que cambia es el resto, y depende de cómo
+esté servida la app:
 
-Así que ese paso es **guiado y no automático**: la app dice exactamente qué
-hacer y detecta sola cuando el teléfono ya está en la red del dispositivo
-(sondeando `http://192.168.4.1:5000/info` cada 3 segundos). El resto del flujo
-—leer las redes, mandar las credenciales, verificar el resultado en el log—
-sí es automático.
+**Servida por HTTP** (dentro de la tailnet): la app detecta sola cuando el
+teléfono llegó a la red del Tector, sondeando `http://192.168.4.1:5000/info`
+cada 3 segundos; después lista las redes, manda las credenciales y verifica
+el log. Un solo toque manual, en Ajustes.
 
-Son dos toques manuales en Ajustes, una sola vez por dispositivo. Si en algún
-momento molestan, envolver esto en Capacitor o una TWA permite automatizarlos
-sin reescribir ninguna pantalla.
+**Servida por HTTPS** (GitHub Pages, que es lo que permite instalarla como
+app): el navegador bloquea cualquier `fetch` a `http://192.168.4.1` por
+contenido mixto, así que la app no puede dibujar la lista de redes.
+
+> El detalle que hace que igual funcione: el bloqueo por contenido mixto
+> aplica a subrecursos y a `fetch`, **no a la navegación de nivel superior**.
+> Una página HTTPS sí puede *ir* a una dirección HTTP.
+
+Entonces la app pide el número de serie (que se lee del propio SSID), abre la
+página que sirve el Tector —que ya tiene la identidad del proyecto y hace
+exactamente lo mismo— y cuando la persona vuelve a su red, verifica el
+resultado contra el servidor. Se pierde la lista de redes dentro de la app;
+no se pierde ningún paso.
+
+Se puede ver ese modo sin montar HTTPS agregando `?guiado=1` a la URL.
+
+Si en algún momento los toques manuales molestan, envolver esto en Capacitor
+o una TWA permite automatizarlos sin reescribir ninguna pantalla.
 
 > El *service worker* no es un lujo acá: mientras el teléfono está en la red
 > del Tector no hay internet, y sin la app cacheada la pantalla quedaría en
@@ -165,6 +179,30 @@ automático.
   escritorio, pero todavía no corrió en el teléfono.
 
 ---
+
+## Actualizar la app
+
+No hay que desinstalar nada. El service worker busca una versión nueva cada
+vez que se vuelve a la app, y cuando la encuentra toma el control y recarga
+la pantalla una sola vez. La versión que está corriendo se ve en
+**Cuenta → Estado de la app**.
+
+## Tectors con software 1.1
+
+Un LSD-Tector1.1 no sabe registrarse solo: esa versión no tiene número de
+serie ni conoce al servidor. Pero sube sus detecciones con el mismo formato
+de nombre y baja `config_horarios.txt` de Drive al cerrar ventana, así que en
+la app funcionan los cantos, las estadísticas y hasta el cambio de horarios.
+
+Se da de alta a mano, sin tocar el equipo:
+
+```bash
+python3 -m scripts.precargar_serie 0001 --heredado --drive-path "Tector 1"
+```
+
+Lo único que falta es `estado.json`, que no existe en esa versión: la app lo
+muestra como *«Versión 1.1 · sin reporte de estado»*, con un punto gris —ni
+verde de «todo bien» ni ámbar de «algo pasa», sino gris de «no se sabe».
 
 ## Repositorios del proyecto
 

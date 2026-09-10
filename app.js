@@ -15,6 +15,11 @@
  */
 
 const App = (() => {
+  /* Version de la app. Se muestra en Cuenta > Estado de la app y sirve para
+   * saber si el telefono ya tomo un cambio. Subirla NO es lo que dispara la
+   * actualizacion --de eso se encarga el service worker-- pero es la unica
+   * forma de verificar a simple vista que version esta corriendo. */
+  const VERSION = '2026.09.10-3';
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (t) => String(t == null ? '' : t)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -129,6 +134,12 @@ const App = (() => {
    * apagado, y eso es lo normal, no una falla. */
   function estadoDe(disp) {
     const e = disp.estado;
+    /* Un Tector con software 1.1 no publica estado.json --esa version no lo
+     * tiene-- pero funciona perfectamente: sube sus detecciones y baja sus
+     * horarios igual. Marcarlo como "sin datos" seria mentir. */
+    if (disp.heredado && !e) {
+      return { clase: 'legado', texto: 'Versión 1.1 · sin reporte de estado' };
+    }
     if (!e) return { clase: 'mudo', texto: 'Sin datos todavía' };
     const horas = (Date.now() - new Date(e.generado).getTime()) / 36e5;
     if (horas > 26) return { clase: 'mudo', texto: `Sin datos ${haceCuanto(e.generado)}` };
@@ -440,7 +451,7 @@ const App = (() => {
       </div>
       <div style="flex:1"></div>
       <div class="credito grande" style="max-width:340px">
-        <span>Dispositivo desarrollado por el</span>
+        <span>Desarrollado por el</span>
         <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
         <span>FCEyN — UBA</span>
       </div>
@@ -726,7 +737,7 @@ const App = (() => {
         </div>
         <div class="credito" style="margin-top:22px">
           <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
-          <span>Dispositivo desarrollado por el<br>
+          <span>Desarrollado por el<br>
             Laboratorio de Sistemas Dinámicos<br><b>FCEyN — UBA</b></span></div>
       </div>${barra('cuenta')}</div>`;
   };
@@ -976,6 +987,69 @@ const App = (() => {
         </div></div>`;
     }
 
+    /* MODO GUIADO -- por que existe
+     *
+     * Servida por HTTPS (GitHub Pages, que es lo que permite instalarla como
+     * app), la pagina NO puede hacerle fetch a http://192.168.4.1:5000: el
+     * navegador bloquea el contenido mixto. Asi que el paso de elegir la red
+     * no se puede dibujar dentro de la app.
+     *
+     * Lo que el navegador SI permite es NAVEGAR a una direccion http desde
+     * una pagina https --el bloqueo es para subrecursos y fetch, no para ir
+     * a otra pagina. De ahi este modo: la app abre la pagina que el propio
+     * Tector sirve, que ya tiene la identidad del proyecto y hace lo mismo,
+     * y despues verifica el resultado contra el servidor.
+     *
+     * Servida por HTTP --dentro de la tailnet-- no hace falta nada de esto y
+     * se usa el modo automatico de siempre. */
+    if (s.paso === 'serie') {
+      return `<div class="pantalla">
+        ${encabezado('Sincronizar', { volver: '/sync' })}
+        <div class="scroll">
+          <div class="aviso info" style="margin-top:14px"><span class="ic">1</span>
+            <div>Abrí los ajustes de WiFi del teléfono y conectate a la red del
+            Tector. <b>No tiene contraseña.</b></div></div>
+          <div class="t plana">
+            <span class="rot" style="margin-top:0">Buscá una red así</span>
+            <div class="mono" style="font-size:16px;color:var(--terra-ink)">Tector-####-setup</div>
+            <p class="mini" style="margin:6px 0 0">Los cuatro dígitos son el
+              número de serie del equipo, y están en su etiqueta.</p></div>
+          <div class="aviso info"><span class="ic">2</span>
+            <div>Escribí acá esos cuatro dígitos, para que sepamos con qué
+            Tector estamos trabajando.</div></div>
+          <div class="campo"><label for="serie">Número de serie</label>
+            <input id="serie" inputmode="numeric" maxlength="4" placeholder="4417"
+              value="${esc(s.serie || '')}"></div>
+          <div id="errSerie"></div>
+          <button class="b" data-accion="confirmarSerie">Siguiente</button>
+          <button class="b sec chica" data-ir="${cerrar || '/sync'}">Cancelar</button>
+        </div></div>`;
+    }
+
+    if (s.paso === 'guiado') {
+      return `<div class="pantalla">
+        ${encabezado(`Configurar Tector ${s.serie}`, { volver: '/sync' })}
+        <div class="scroll">
+          <div class="aviso info" style="margin-top:14px"><span class="ic">3</span>
+            <div>Abrí la página del Tector y elegí ahí la red WiFi a la que se
+            va a conectar, con su contraseña.</div></div>
+          <a class="b" href="${esc(API.PORTAL)}" target="_blank" rel="noopener"
+            style="text-decoration:none;line-height:1.4">Abrir la página del Tector ↗</a>
+          <p class="mini" style="text-align:center;margin-top:-2px">
+            Se abre en el navegador, en <span class="mono">192.168.4.1</span></p>
+          <div class="aviso cuidado" style="margin-top:16px"><span class="ic">4</span>
+            <div>Cuando el Tector diga que está conectando, <b>volvé a tu red
+            WiFi de siempre</b> y tocá Verificar acá abajo.</div></div>
+          <button class="b" data-accion="verificarGuiado">Verificar</button>
+          <button class="b sec chica" data-ir="${cerrar || '/sync'}">Cancelar</button>
+          <div class="t plana" style="margin-top:14px">
+            <p class="mini" style="margin:0">Este paso se hace en la página del
+              propio Tector porque la app está servida por HTTPS y el navegador
+              no la deja hablarle directo a un equipo por HTTP. Es una
+              limitación del navegador, no del Tector.</p></div>
+        </div></div>`;
+    }
+
     if (s.paso === 'redes') {
       return `<div class="pantalla">
         ${encabezado(`Configurar Tector ${s.serie}`, { sub: 'Paso 2 de 3' })}
@@ -1044,11 +1118,21 @@ const App = (() => {
         <div class="centro">
           <div class="tilde mal">${IC.cruz}</div>
           <p class="sec">El Tector no pudo conectarse</p>
-          <p class="chico" style="max-width:290px">Volvió a modo configuración,
-            así que la red o la contraseña no funcionaron.</p>
-          <div class="t" style="width:100%;max-width:320px;border-color:var(--mal)">
-            <span class="rot" style="margin-top:0">Detectado de nuevo</span>
-            <div class="mono" style="font-size:14px">Tector-${esc(s.serie)}-setup</div></div>
+          ${s.modo === 'guiado' ? `
+            <p class="chico" style="max-width:290px">Pasaron tres minutos y el
+              Tector no avisó que se conectó.</p>
+            <div class="t plana" style="width:100%;max-width:320px;text-align:left">
+              <p class="chico" style="margin:0">Fijate si la red
+                <span class="mono">Tector-${esc(s.serie)}-setup</span> volvió a
+                aparecer en tu lista de WiFi: si está, la red o la contraseña
+                que le diste no funcionaron. Si no está, puede que el Tector sí
+                se haya conectado y todavía no haya subido nada.</p></div>`
+          : `
+            <p class="chico" style="max-width:290px">Volvió a modo configuración,
+              así que la red o la contraseña no funcionaron.</p>
+            <div class="t" style="width:100%;max-width:320px;border-color:var(--mal)">
+              <span class="rot" style="margin-top:0">Detectado de nuevo</span>
+              <div class="mono" style="font-size:14px">Tector-${esc(s.serie)}-setup</div></div>`}
           <div style="flex:1"></div>
           <button class="b" style="max-width:320px" data-accion="buscar">Reiniciar conexión</button>
           <button class="b sec chica" style="max-width:320px" data-ir="${cerrar || '/sync'}">Salir del asistente</button>
@@ -1416,6 +1500,7 @@ const App = (() => {
         titulo: 'Estado de la app', seguir: false, cancelar: 'Cerrar',
         confirmar: 'Copiar',
         cambios: [
+          ['Versión', VERSION],
           ['Servida por HTTPS', seguro ? 'sí' : 'NO'],
           ['Service worker', E.sw],
           ['Corriendo instalada', std ? 'sí' : 'no'],
@@ -1429,7 +1514,8 @@ const App = (() => {
           : null,
       }).then(async (copiar) => {
         if (copiar) {
-          const txt = [`origen: ${location.origin}`, `seguro: ${seguro}`,
+          const txt = [`version: ${VERSION}`, `origen: ${location.origin}`,
+            `seguro: ${seguro}`,
             `service worker: ${E.sw}`, `standalone: ${std}`,
             `puede instalar: ${!!E.prompt}`,
             `navegador: ${navigator.userAgent}`].join(String.fromCharCode(10));
@@ -1631,6 +1717,24 @@ const App = (() => {
       return;
     }
     if (nombre === 'buscar') { buscarTector(); return; }
+
+    if (nombre === 'confirmarSerie') {
+      const v = ($('#serie').value || '').trim();
+      if (!/^\d{4}$/.test(v)) {
+        $('#errSerie').innerHTML =
+          '<p class="error">Son cuatro dígitos, como 4417.</p>';
+        return;
+      }
+      E.sync.serie = v; E.sync.paso = 'guiado';
+      $('#app').innerHTML = P.sync(); enlazar();
+      return;
+    }
+
+    if (nombre === 'verificarGuiado') {
+      E.sync.ssidDestino = null;
+      verificar();
+      return;
+    }
     if (nombre === 'recargarRedes') { cargarRedes(); return; }
     if (nombre === 'reverificar') { verificar(); return; }
     if (nombre === 'terminarSync') {
@@ -1670,9 +1774,25 @@ const App = (() => {
 
   function pararReloj() { if (temporizador) { clearInterval(temporizador); temporizador = null; } }
 
+  /* Servida por HTTPS el navegador bloquea el fetch a 192.168.4.1, asi que
+   * no se puede escanear ni listar redes desde adentro: se guia. Por HTTP
+   * --tailnet o localhost-- se hace todo solo. En demostracion se simula el
+   * modo automatico, que es el que mas hay para mostrar. */
+  function modoGuiado() {
+    // ?guiado=1 fuerza el modo guiado en cualquier contexto. Sirve para
+    // verlo sin montar HTTPS, y para probarlo automaticamente.
+    if (new URLSearchParams(location.search).get('guiado') === '1') return true;
+    return location.protocol === 'https:' && !API.enDemo();
+  }
+
   async function buscarTector() {
     pararReloj();
-    E.sync = { paso: 'buscando', segundos: 0 };
+    if (modoGuiado()) {
+      E.sync = { paso: 'serie', modo: 'guiado' };
+      ir('/sync'); $('#app').innerHTML = P.sync(); enlazar();
+      return;
+    }
+    E.sync = { paso: 'buscando', segundos: 0, modo: 'auto' };
     ir('/sync'); $('#app').innerHTML = P.sync(); enlazar();
 
     if (API.enDemo()) {
@@ -1782,9 +1902,14 @@ const App = (() => {
 
       if (Date.now() - inicio >= VENTANA_MS) {
         pararReloj();
-        // Si la red de setup reaparecio, el que fallo fue el Tector. Si no,
-        // el que no llega a ningun lado es el telefono.
-        const info = await API.portalInfo(2500);
+        /* Si la red de setup reaparecio, el que fallo fue el Tector. Si no,
+         * el que no llega a ningun lado es el telefono.
+         *
+         * En modo guiado no se puede preguntar: sondear el portal es
+         * justamente el fetch que el navegador bloquea. Se asume el caso mas
+         * probable --que el Tector no pudo conectarse-- y la pantalla de
+         * error lo dice sin afirmar de mas. */
+        const info = E.sync.modo === 'guiado' ? true : await API.portalInfo(2500);
         E.sync.paso = info ? 'errorTector' : 'sinConexion';
         $('#app').innerHTML = P.sync(); enlazar();
         return;
@@ -1817,6 +1942,29 @@ const App = (() => {
         E.sw = reg.active ? 'activo' : 'instalándose';
         reg.addEventListener('updatefound', () => { E.sw = 'actualizándose'; });
       }).catch((e) => { E.sw = 'falló: ' + e.message; });
+
+      /* Actualizacion sin desinstalar nada.
+       *
+       * El service worker nuevo se instala solo al abrir la app y toma el
+       * control enseguida (skipWaiting + clients.claim). Cuando eso pasa, la
+       * pagina que se esta viendo todavia es la vieja: hay que recargarla
+       * una vez para ver la nueva. Esto lo hace solo.
+       *
+       * El guardia evita el bucle clasico: sin el, cada recarga puede
+       * disparar otro controllerchange y la app se recarga para siempre. */
+      let recargando = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (recargando) return;
+        recargando = true;
+        location.reload();
+      });
+      // Buscar version nueva cada vez que se vuelve a la app.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          navigator.serviceWorker.getRegistration()
+            .then((reg) => reg && reg.update()).catch(() => { /* sin red */ });
+        }
+      });
     }
   }
 
