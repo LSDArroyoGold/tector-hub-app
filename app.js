@@ -26,11 +26,32 @@ const App = (() => {
   };
 
   /* ---------------- iconos ---------------- */
-  const ISO_LINEAS = [[148.55,40.01,186.37],[142.45,46.08,191.31],[136.1,52.14,208.69],[133.99,58.21,226.31],[130.47,64.28,225.37],[126.94,70.35,198.59],[123.89,76.42,191.31],[119.19,82.49,189.9],[112.61,88.56,188.96],[105.33,94.62,193.89],[101.57,100.69,195.3],[97.81,106.76,196.01],[93.82,112.83,195.54],[90.77,118.9,193.42],[86.54,124.97,192.48],[82.55,131.03,190.13],[78.08,137.1,186.84],[75.03,143.17,184.26],[70.1,149.24,181.44],[67.98,155.31,176.98],[65.63,161.38,169.23],[63.52,167.44,161],[59.99,173.51,147.85],[56.24,179.58,95.23],[52.01,185.65,84.66],[46.84,191.72,71.04],[38.85,197.79,66.57],[36.03,203.86,62.11],[29.69,209.92,56.47],[29.69,215.99,49.42]];
+  /* El isotipo del proyecto: el pajaro esta hecho de barras horizontales,
+   * un espectrograma leido como silueta. Son las 43 lineas exactas de
+   * assets/tector_isotipo.svg, como [x1, y, x2] -- todas horizontales.
+   * NO recortar la lista: las ultimas son las patas. */
+  const ISO_LINEAS = [
+    [148.55,40.01,186.37],[142.45,46.08,191.31],[136.1,52.14,208.69],
+    [133.99,58.21,226.31],[130.47,64.28,225.37],[126.94,70.35,198.59],
+    [123.89,76.42,191.31],[119.19,82.49,189.9],[112.61,88.56,188.96],
+    [105.33,94.62,193.89],[101.57,100.69,195.3],[97.81,106.76,196.01],
+    [93.82,112.83,195.54],[90.77,118.9,193.42],[86.54,124.97,192.48],
+    [82.55,131.03,190.13],[78.08,137.1,186.84],[75.03,143.17,184.26],
+    [70.1,149.24,181.44],[67.98,155.31,176.98],[65.63,161.38,169.23],
+    [63.52,167.44,161],[59.99,173.51,147.85],[56.24,179.58,95.23],
+    [98.75,179.58,100.63],[109.09,179.58,120.84],[130.94,179.58,141.04],
+    [52.01,185.65,84.66],[112.14,185.65,119.66],[133.99,185.65,145.97],
+    [46.84,191.72,71.04],[116.61,191.72,124.59],[140.57,191.72,151.84],
+    [38.85,197.79,66.57],[119.66,197.79,127.65],[145.74,197.79,159.83],
+    [36.03,203.86,62.11],[110.97,203.86,132.58],[135.63,203.86,180.03],
+    [29.69,209.92,56.47],[109.09,209.92,181.91],[29.69,215.99,49.42],
+    [128.35,215.99,154.43]];
   function iso(alto = 30) {
     const l = ISO_LINEAS.map(([x1, y, x2]) =>
       `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/>`).join('');
-    return `<svg class="iso" width="${alto}" height="${alto}" viewBox="24 34 208 190"
+    // El pajaro no es cuadrado (200x179): forzar width=height lo achataria.
+    return `<svg class="iso" width="${Math.round(alto * 200 / 179)}"
+      height="${alto}" viewBox="28 38 200 179"
       fill="none" stroke="currentColor" stroke-width="3.38" stroke-linecap="round"
       aria-hidden="true">${l}</svg>`;
   }
@@ -225,13 +246,37 @@ const App = (() => {
   AUDIO.addEventListener('ended', detener);
 
   /* ---------------- piezas de UI ---------------- */
+  /* Si la foto no carga, en su lugar va el isotipo.
+   *
+   * El reemplazo se hace desde una funcion global y no con un onerror
+   * inline: el HTML del isotipo lleva comillas dobles, y meterlo dentro de
+   * onerror="..." cerraba el atributo antes de tiempo. El resto del codigo
+   * se escapaba al documento y aparecia como texto suelto debajo de cada
+   * foto (bug real, visible en el dashboard el 10/9). */
+  window.__fotoRota = (img) => {
+    const d = document.createElement('div');
+    d.className = img.className + ' sinfoto';
+    d.innerHTML = iso(64);
+    img.replaceWith(d);
+  };
+
   function foto(det, clase = '') {
     const url = API.urlFoto(det.especie_carpeta);
     if (!url) {
       return `<div class="foto ${clase} sinfoto">${iso(64)}</div>`;
     }
     return `<img class="foto ${clase}" loading="lazy" alt="${esc(det.especie)}"
-      src="${esc(url)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'foto ${clase} sinfoto',innerHTML:${JSON.stringify(iso(64))}}))">`;
+      src="${esc(url)}" onerror="__fotoRota(this)">`;
+  }
+
+  /* Wikimedia Commons pide atribucion, asi que la foto viaja con el credito
+   * de su autor y su licencia. Va chiquito debajo de la tarjeta destacada,
+   * no en cada miniatura: repetirlo cinco veces seria ruido. */
+  function creditoFotoHTML(det) {
+    const c = API.creditoFoto(det.especie_carpeta);
+    if (!c) return '';
+    return `<div class="credito-foto">Foto: ${esc(c.autor || 'autor no indicado')}
+      · ${esc(c.licencia)} · Wikimedia Commons</div>`;
   }
 
   function pillConfianza(c) {
@@ -277,7 +322,8 @@ const App = (() => {
       <div style="width:100%;max-width:340px;margin-top:14px;text-align:left">
         ${API.enDemo() ? `<div class="aviso info" style="margin-bottom:12px">
           <span class="ic">i</span><div><b>Modo demostración.</b> Entrá con
-          cualquier usuario y contraseña: no se valida contra nada.</div></div>` : ''}
+          <b>d.arroyo</b> / <b>demo</b>, que ya vienen cargados. Los datos son
+          de ejemplo.</div></div>` : ''}
         <div class="campo"><label for="u">Usuario</label>
           <input id="u" data-entrar autocomplete="username" autocapitalize="none"
             value="${API.enDemo() ? 'd.arroyo' : ''}"></div>
@@ -289,13 +335,11 @@ const App = (() => {
         <p class="mini" style="text-align:center">¿No tenés cuenta? Pedila al laboratorio.</p>
       </div>
       <div style="flex:1"></div>
-      <div class="credito" style="max-width:340px">
+      <div class="credito grande" style="max-width:340px">
+        <span>Dispositivo desarrollado por el</span>
         <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
-        <span>Dispositivo desarrollado por el<br>
-          <b>Laboratorio de Sistemas Dinámicos</b><br>FCEyN — UBA</span>
+        <span>FCEyN — UBA</span>
       </div>
-      <button class="b sec chica" data-ir="/servidor" style="max-width:340px;margin-top:10px">
-        ${API.enDemo() ? 'Conectar a un servidor' : esc(API.servidor())}</button>
     </div></div>`;
 
   P.servidor = () => `
@@ -347,6 +391,7 @@ const App = (() => {
             ${ondaHTML(primera.ruta)}
             <div class="entre" style="margin-top:7px">
               <span class="mini mono">${esc(primera.fecha)} · ${esc(primera.hora)}</span></div>
+            ${creditoFotoHTML(primera)}
           </div></div>
         <div class="grilla4">
           ${resto.map((d2) => `<button class="mini-det" data-det="${esc(d2.ruta)}">
@@ -561,14 +606,12 @@ const App = (() => {
         <div class="t cero">
           <button class="fila" data-ir="/apariencia"><span class="crece">Apariencia</span><span class="chev">›</span></button>
           <button class="fila" data-ir="/notificaciones"><span class="crece">Notificaciones</span><span class="chev">›</span></button>
-          <button class="fila" data-ir="/servidor"><span class="crece">Servidor</span>
-            <span class="mini">${API.enDemo() ? 'demostración' : 'conectado'}</span><span class="chev">›</span></button>
           <button class="fila" data-accion="salir"><span class="crece">Cerrar sesión</span><span class="chev">›</span></button>
         </div>
         <div class="credito" style="margin-top:22px">
           <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
           <span>Dispositivo desarrollado por el<br>
-            <b>Laboratorio de Sistemas Dinámicos</b><br>FCEyN — UBA</span></div>
+            Laboratorio de Sistemas Dinámicos<br><b>FCEyN — UBA</b></span></div>
       </div>${barra('cuenta')}</div>`;
   };
 
@@ -619,7 +662,7 @@ const App = (() => {
       <span class="rot">Ventana de ${etiqueta}</span>
       <div class="t" ${larga(dur) ? 'style="border-color:var(--avi)"' : ''}>
         <div style="display:flex;gap:9px">
-          <div class="campo" style="flex:1;margin:0">
+          <div class="campo${h.auto_sync ? ' velado' : ''}" style="flex:1;margin:0">
             <label for="i-${cual}">Inicio${h.auto_sync ? ' 🔒' : ''}</label>
             <input id="i-${cual}" type="time" value="${esc(ini)}" data-campo="inicio_${cual}"
               ${h.auto_sync ? 'disabled' : ''}></div>
@@ -628,11 +671,11 @@ const App = (() => {
             <input id="d-${cual}" type="number" step="0.5" min="0.5" max="12"
               value="${dur}" data-campo="duracion_${cual}_h"></div>
         </div>
-        <div class="entre" style="margin-top:9px">
+        <div class="entre${h.auto_sync ? ' velado' : ''}" style="margin-top:9px">
           <span class="chico">Termina a las</span><span class="mono">${esc(fin)}</span></div>
         ${larga(dur) ? `<div class="aviso cuidado" style="margin:9px 0 0"><span class="ic">⚠</span>
-          <div>Las ventanas de más de 2 horas consumen mucha batería. Con panel
-          solar chico, el Tector puede no llegar a la ventana siguiente.</div></div>` : ''}
+          <div>Las ventanas de más de 2 horas consumen mucha batería: el Tector
+          puede cortar la ventana antes de tiempo para preservar batería.</div></div>` : ''}
       </div>`;
 
     return `<div class="pantalla">
@@ -651,10 +694,6 @@ const App = (() => {
         ${h.auto_sync ? `<div class="aviso info"><span class="ic">🔒</span>
           <div>El inicio y el fin los calcula el Tector cada día. La duración
           la elegís vos.</div></div>` : ''}
-        <div class="aviso info"><span class="ic">i</span><div>Solo hay dos
-          ventanas, amanecer y atardecer. Es una decisión de conservación de
-          batería: cada ventana extra es tiempo de Raspberry encendida que el
-          panel solar tiene que reponer.</div></div>
         <button class="b" data-accion="guardarHorarios" ${E.datos.horariosSucio ? '' : 'disabled'}>
           Aplicar cambios</button>
       </div></div>`;
@@ -960,9 +999,12 @@ const App = (() => {
         alerta = document.createElement('div');
         alerta.className = 'aviso cuidado';
         alerta.style.margin = '9px 0 0';
+        // Mismo texto que la plantilla de P.horarios. Si cambia uno tiene que
+        // cambiar el otro: este es el que se ve al mover la duración, aquel
+        // el que se ve al entrar a la pantalla.
         alerta.innerHTML = '<span class="ic">⚠</span><div>Las ventanas de '
-          + 'más de 2 horas consumen mucha batería. Con panel solar '
-          + 'chico, el Tector puede no llegar a la ventana siguiente.</div>';
+          + 'más de 2 horas consumen mucha batería: el Tector puede cortar '
+          + 'la ventana antes de tiempo para preservar batería.</div>';
         tarjeta.appendChild(alerta);
       } else if (!larga && alerta) {
         alerta.remove();

@@ -59,7 +59,8 @@ python3 -m http.server 8080
 ```
 
 Abrir `http://localhost:8080`. Sin servidor configurado entra en modo
-demostración: cualquier usuario y contraseña sirven.
+demostración, con **d.arroyo / demo** (vienen precargados). Valida de verdad:
+una contraseña equivocada muestra el error, para poder ver esa pantalla.
 
 También hay una versión de un solo archivo en `dist/tector-hub.html`, que se
 abre de un doble clic sin levantar nada. La genera `construir.py`.
@@ -71,8 +72,12 @@ abre de un doble clic sin levantar nada. La genera `construir.py`.
    máquina que corre el servidor.
 2. Abrir esa dirección en **Chrome** en el teléfono.
 3. Menú **⋮ → Añadir a pantalla de inicio**.
-4. Entrar a la app, **Cuenta → Servidor**, y poner la dirección del servidor
-   de Tector Hub.
+La dirección del servidor **no es un ajuste del usuario**: se completa una
+vez en `SERVIDOR_POR_DEFECTO`, arriba de `api.js`, antes de publicar la app.
+Vacía = modo demostración. La pantalla de Servidor sigue existiendo como
+salida de emergencia —para apuntar a un servidor de prueba sin tocar el
+código— pero no figura en el menú de Cuenta; se llega desde la cinta de
+«modo demostración».
 
 > **Sobre HTTP y HTTPS.** Servida por HTTP simple (el caso de Tailscale), la
 > app puede hablarle al portal del Tector en `http://192.168.4.1:5000` sin
@@ -93,6 +98,7 @@ abre de un doble clic sin levantar nada. La genera `construir.py`.
 | `app.js` | Pantallas, ruteo, reproductor, asistente de sincronización. |
 | `sw.js` | Service worker. Cachea el armazón; nunca datos. |
 | `construir.py` | Arma las versiones de un solo archivo en `dist/`. |
+| `fotos-demo.js` | Generado. Fotos del modo demostración, embebidas. |
 | `iconos/` | Generados de `Tector_isotipo.svg`. |
 
 Sin framework y sin dependencias. La app entera son tres archivos de texto.
@@ -137,7 +143,14 @@ Es el único elemento decorativo de la app y también su control más usado.
 
 **Las fotos de especie traen su atribución.** Vienen de Wikimedia Commons
 —licencia consultable y crédito al autor—, resueltas y cacheadas por el
-servidor. En modo demostración no hay fotos: va el isotipo de relleno.
+servidor. En modo demostración viajan embebidas en `fotos-demo.js`
+(`herramientas/generar_fotos_demo.py` lo regenera), porque si no no habría
+fotos sin servidor.
+
+**Lo que la sincronización automática bloquea, se ve bloqueado.** El
+`disabled` solo no alcanza: el campo queda igual de blanco y nada dice que no
+se toca. Va con un velo gris encima, que desaparece al apagar el modo
+automático.
 
 ---
 

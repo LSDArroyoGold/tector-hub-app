@@ -42,6 +42,18 @@ const Guardado = (() => {
   };
 })();
 
+/* Direccion del servidor del laboratorio.
+ *
+ * Es un valor de DESPLIEGUE, no una preferencia del usuario: se completa acá
+ * una vez, al publicar la app, y nadie lo toca desde el telefono. Vacio =
+ * modo demostracion, que es como se distribuye mientras el servidor no
+ * exista.
+ *
+ * La pantalla de Servidor sigue existiendo como salida de emergencia (para
+ * apuntar a un servidor de prueba sin recompilar nada), pero ya no figura en
+ * el menu de Cuenta. Se llega desde la cinta de "modo demostración". */
+const SERVIDOR_POR_DEFECTO = '';
+
 const API = (() => {
   const LS = {
     servidor: 'tector.servidor',
@@ -49,7 +61,10 @@ const API = (() => {
     usuario: 'tector.usuario',
   };
 
-  function base() { return (Guardado.leer(LS.servidor) || '').replace(/\/+$/, ''); }
+  function base() {
+    return (Guardado.leer(LS.servidor) || SERVIDOR_POR_DEFECTO)
+      .replace(/\/+$/, '');
+  }
   function token() { return Guardado.leer(LS.token) || ''; }
   function demo() { return !base(); }
 
@@ -89,6 +104,11 @@ const API = (() => {
   /* ----------------------------------------------------------------
    * Datos de demostracion
    * ---------------------------------------------------------------- */
+
+  // Credenciales del modo demostracion. La pantalla de ingreso las precarga
+  // y las muestra, asi que no son un secreto: son parte de la demostracion.
+  const USUARIO_DEMO = 'd.arroyo';
+  const CLAVE_DEMO = 'demo';
 
   const ESPECIES = [
     ['Rufous_Hornero', 'Hornero', 'Furnarius rufus'],
@@ -215,7 +235,12 @@ const API = (() => {
     async login(usuario, clave) {
       if (demo()) {
         await espera(420);
-        if (!usuario || !clave) throw new ErrorAPI('Usuario o contraseña incorrectos.', 401);
+        /* Se validan las credenciales aunque sean de mentira: si cualquier
+         * cosa entrara, no se podria ver el estado de error del login, y
+         * quien prueba la app se llevaria la idea de que no valida nada. */
+        if (usuario !== USUARIO_DEMO || clave !== CLAVE_DEMO) {
+          throw new ErrorAPI('Usuario o contraseña incorrectos.', 401);
+        }
         const u = { usuario, nombre: 'Diego Arroyo' };
         Guardado.poner(LS.token, 'demo');
         Guardado.poner(LS.usuario, JSON.stringify(u));
@@ -369,8 +394,23 @@ const API = (() => {
     },
 
     urlFoto(especieCarpeta) {
-      if (demo() || !especieCarpeta) return null;
+      if (!especieCarpeta) return null;
+      if (demo()) {
+        // Embebidas en fotos-demo.js, para que se vean sin servidor y sin
+        // pedidos a dominios externos.
+        const f = (typeof FOTOS_DEMO !== 'undefined') && FOTOS_DEMO[especieCarpeta];
+        return f ? f.src : null;
+      }
       return `${base()}/especies/${encodeURIComponent(especieCarpeta)}/foto`;
+    },
+
+    /* Autor y licencia de la foto. En demostracion salen del archivo
+     * embebido; con servidor hay que pedirlos, asi que devuelve null y la
+     * pantalla los completa despues con especie(). */
+    creditoFoto(especieCarpeta) {
+      if (!demo() || !especieCarpeta) return null;
+      const f = (typeof FOTOS_DEMO !== 'undefined') && FOTOS_DEMO[especieCarpeta];
+      return f && f.licencia ? { autor: f.autor, licencia: f.licencia } : null;
     },
 
     async especie(nombre) {

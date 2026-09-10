@@ -190,10 +190,13 @@ a{color:var(--terra-ink)}
 
 /* reproductor: el motivo de barras del logo, como scrubber */
 .play{display:flex;align-items:center;gap:9px;margin-top:9px}
-.play button{width:34px;height:34px;border-radius:50%;background:var(--terra);
-  color:#fff;border:0;flex:none;cursor:pointer;display:flex;
-  align-items:center;justify-content:center}
-.play button svg{width:13px;height:13px}
+/* Solo el boton de reproducir, NO el de la onda: la onda tambien es un
+   <button> y con ".play button" se llevaba puesto el redondel naranja, asi
+   que el scrubber aparecia como una bolita al lado del play. */
+.play > button:not(.onda){width:34px;height:34px;border-radius:50%;
+  background:var(--terra);color:#fff;border:0;flex:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.play > button:not(.onda) svg{width:13px;height:13px}
 .onda{flex:1;display:flex;align-items:center;gap:2px;height:26px;
   cursor:pointer;border:0;background:none;padding:0}
 .onda i{flex:1;background:var(--terra);border-radius:1px;opacity:.3;display:block;
@@ -297,9 +300,29 @@ a{color:var(--terra-ink)}
   font:inherit;cursor:pointer;padding:0}
 .credito{display:flex;align-items:center;gap:10px;text-align:left;
   padding-top:14px;border-top:1px solid var(--rule);margin-top:8px;width:100%}
-.credito img{width:34px;height:34px;object-fit:contain;flex:none}
+/* El logo del laboratorio es apaisado (340x121). Encerrarlo en una caja
+   cuadrada lo dejaba de 58x20 aunque la caja midiera 58: se le fija el ancho
+   y la altura sale sola. */
+.credito img{width:96px;height:auto;flex:none}
 :root[data-tema="oscuro"] .credito img{filter:invert(1) brightness(1.8)}
 @media (prefers-color-scheme:dark){
   :root[data-tema="sistema"] .credito img{filter:invert(1) brightness(1.8)}}
 .credito span{font-size:11px;color:var(--mut);line-height:1.45}
 .credito b{color:var(--ink2);font-weight:600}
+/* En la pantalla de ingreso el credito del laboratorio es lo unico que
+   acompana al logo, asi que va mas grande: ahi tiene lugar de sobra y a este
+   tamano el isotipo del LSD se lee. */
+.credito.grande{flex-direction:column;align-items:center;text-align:center;
+  gap:9px;padding-top:20px}
+.credito.grande img{width:184px}
+.credito.grande span{font-size:12px;line-height:1.5}
+
+/* Velo sobre lo que la sincronizacion automatica deja fuera de alcance.
+   El disabled solo no se ve: el campo queda igual de blanco y con el mismo
+   contraste, y no hay nada que diga "esto no se toca". */
+.velado{position:relative}
+.velado::after{content:"";position:absolute;inset:-4px -6px;border-radius:8px;
+  background:var(--rule);opacity:.42;pointer-events:none}
+:root[data-tema="oscuro"] .velado::after{background:var(--sunk);opacity:.55}
+@media (prefers-color-scheme:dark){
+  :root[data-tema="sistema"] .velado::after{background:var(--sunk);opacity:.55}}

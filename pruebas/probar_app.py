@@ -88,6 +88,28 @@ GUION = r"""
   T('sigue enfocado despues de escribir', document.activeElement === u);
   T('el campo no esta deshabilitado', !u.disabled);
 
+  // El isotipo tiene que estar entero: las ultimas lineas son las patas.
+  const patas = document.querySelector('svg.iso');
+  T('el isotipo tiene sus 43 lineas', patas && patas.querySelectorAll('line').length === 43,
+    patas && patas.querySelectorAll('line').length + ' lineas');
+  T('el isotipo no esta achatado',
+    patas && patas.getAttribute('width') !== patas.getAttribute('height'));
+  const logoLsd = document.querySelector('.credito.grande img');
+  T('el logo del laboratorio se ve grande en el ingreso',
+    !!logoLsd && logoLsd.getBoundingClientRect().width >= 50,
+    logoLsd && Math.round(logoLsd.getBoundingClientRect().width) + ' px');
+  T('el ingreso ya no ofrece configurar el servidor',
+    !document.querySelector('.centro [data-ir="/servidor"]'));
+
+  // Una contrasena equivocada NO tiene que dejar pasar.
+  c.value = 'demod';
+  document.querySelector('[data-accion="entrar"]').click();
+  await dormir(1200);
+  T('una contrasena equivocada es rechazada',
+    !!document.getElementById('u') && hay('incorrectos'),
+    limpio((document.getElementById('errLogin') || {}).textContent));
+  c.value = 'demo';
+
   // --- dashboard ---
   document.querySelector('[data-accion="entrar"]').click();
   await dormir(1500);
@@ -98,6 +120,12 @@ GUION = r"""
   T('el nombre de la especie sale en castellano',
     hay('Hornero') || hay('Chingolo') || hay('Benteveo'),
     limpio((document.querySelector('.nomb') || {}).textContent));
+
+  const img = document.querySelector('img.foto');
+  T('la deteccion destacada muestra una foto real',
+    !!img && img.src.startsWith('data:image'), img ? img.src.slice(0, 22) : 'sin <img>');
+  T('la foto trae su atribucion',
+    hay('Wikimedia Commons'), limpio((document.querySelector('.credito-foto')||{}).textContent));
 
   const pl = document.querySelector('[data-play]');
   pl.querySelector('button').click();
@@ -141,6 +169,10 @@ GUION = r"""
   const dur = document.querySelector('[data-campo="duracion_amanecer_h"]');
   T('Aplicar arranca deshabilitado',
     document.querySelector('[data-accion="guardarHorarios"]').disabled);
+  T('con sincronizacion automatica el inicio esta velado',
+    document.querySelectorAll('.velado').length > 0,
+    document.querySelectorAll('.velado').length + ' velados');
+  T('ya no aparece la nota de las dos ventanas', !hay('Solo hay dos'));
   if (dur) {
     dur.focus();
     dur.value = '3.5';
@@ -148,6 +180,8 @@ GUION = r"""
     await dormir(400);
     T('cambiar la duracion NO hace perder el foco', document.activeElement === dur);
     T('aparece la advertencia de mas de 2 horas', hay('más de 2 horas'));
+    T('la advertencia dice que el Tector corta la ventana',
+      hay('cortar la ventana antes de tiempo'));
     T('recalcula la hora de fin', hay('11:'));
     T('Aplicar se habilita al haber cambios',
       !document.querySelector('[data-accion="guardarHorarios"]').disabled);
@@ -174,8 +208,23 @@ GUION = r"""
     T('el aviso de demora se abre solo al tocarlo', hay('Puede tardar en aparecer')); }
 
   // --- cuenta y preferencias ---
+  // Al apagar la sincronizacion automatica el velo se tiene que ir.
+  await irA('#/horarios');
+  document.querySelector('[data-accion="autoSync"]').click();
+  await dormir(500);
+  T('al apagar la sincronizacion automatica se va el velo',
+    document.querySelectorAll('.velado').length === 0,
+    document.querySelectorAll('.velado').length + ' velados');
+  T('y el inicio queda editable',
+    !document.querySelector('[data-campo="inicio_amanecer"]').disabled);
+
   await irA('#/cuenta');
   T('cuenta lista los dispositivos', hay('Mis Tectors'));
+  // La cinta de "modo demostración" si tiene un enlace al servidor, y esta
+  // bien: es la unica puerta de entrada que queda. Lo que no tiene que estar
+  // es la FILA del menu de Cuenta.
+  T('el menu de Cuenta ya no tiene la fila de Servidor',
+    !document.querySelector('.fila[data-ir="/servidor"]'));
   T('cuenta muestra el credito del laboratorio',
     hay('Laboratorio de Sistemas Dinámicos'));
 
