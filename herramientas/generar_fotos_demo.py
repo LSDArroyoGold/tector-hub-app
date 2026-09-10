@@ -11,8 +11,9 @@ el modo demostración tiene que funcionar sin servidor: abriendo el archivo de
 un doble clic, o dentro de un visor que bloquea pedidos a dominios externos.
 La única forma de que se vean fotos ahí es que viajen con la página.
 
-Se piden a 340 px de ancho --suficiente para la tarjeta destacada en un
-teléfono-- así el archivo entero queda en unos pocos cientos de KB.
+Se piden a 560 px de ancho: la tarjeta destacada ocupa el ancho de la
+pantalla, y en un telefono con pantalla densa una imagen mas chica se ve
+ampliada y blanda.
 
 Las imágenes son de Wikimedia Commons y llevan su atribución: el autor y la
 licencia van en el mismo archivo, y la app los muestra debajo de la foto.
@@ -34,7 +35,7 @@ SALIDA = RAIZ / 'fotos-demo.js'
 API = 'https://en.wikipedia.org/w/api.php'
 AGENTE = ('TectorHub/1.0 (Laboratorio de Sistemas Dinamicos, FCEyN-UBA; '
           'https://github.com/LSDArroyoGold)')
-ANCHO = 340
+ANCHO = 560
 
 # Las mismas diez de ESPECIES en api.js.
 ESPECIES = [

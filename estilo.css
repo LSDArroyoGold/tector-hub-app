@@ -168,6 +168,10 @@ a{color:var(--terra-ink)}
   border:1px solid var(--rule);margin-bottom:10px}
 .foto{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;
   background:var(--sunk)}
+/* Tope de altura para la foto destacada: en una pantalla ancha, 16/10 la
+   dejaba comiendose media pantalla y tapando las cuatro detecciones de
+   abajo. En un telefono no llega a este tope y manda la proporcion. */
+.destacada .foto{max-height:min(38vh,300px)}
 .foto.chica{aspect-ratio:1;border-radius:8px}
 .sinfoto{display:flex;align-items:center;justify-content:center;
   background:var(--sunk);color:var(--rule2)}
