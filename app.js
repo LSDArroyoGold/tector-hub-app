@@ -1340,8 +1340,7 @@ const App = (() => {
           const txt = [`origen: ${location.origin}`, `seguro: ${seguro}`,
             `service worker: ${E.sw}`, `standalone: ${std}`,
             `puede instalar: ${!!E.prompt}`,
-            `navegador: ${navigator.userAgent}`].join('
-');
+            `navegador: ${navigator.userAgent}`].join(String.fromCharCode(10));
           try { await navigator.clipboard.writeText(txt); toast('Copiado'); }
           catch (e) { toast('No se pudo copiar'); }
         }
