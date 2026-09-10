@@ -144,11 +144,39 @@ GUION = r"""
   if (f) {
     f.click(); await dormir(1200);
     T('abre las especies de esa fecha', !!document.querySelector('[data-especie]'));
+
+    // La miniatura no puede comerse el renglon: antes heredaba width:100%
+    // de .foto y el nombre de la especie quedaba fuera de la vista.
+    const mini = document.querySelector('[data-especie] img.foto.chica, [data-especie] .foto.chica');
+    T('la miniatura de la carpeta es chica',
+      !!mini && mini.getBoundingClientRect().width <= 70,
+      mini && Math.round(mini.getBoundingClientRect().width) + ' px');
+    const fila = document.querySelector('[data-especie] .crece');
+    T('se ve el nombre de la especie en la carpeta',
+      !!fila && fila.getBoundingClientRect().width > 100,
+      fila && Math.round(fila.getBoundingClientRect().width) + ' px');
+    T('se puede descargar el dia entero', !!document.querySelector('[data-carpeta]'));
+
     const e = document.querySelector('[data-especie]');
     if (e) { e.click(); await dormir(1200);
       T('abre las detecciones de la especie',
         document.querySelectorAll('[data-play]').length > 0,
-        document.querySelectorAll('[data-play]').length + ' audios'); }
+        document.querySelectorAll('[data-play]').length + ' audios');
+      T('cada deteccion se puede descargar',
+        document.querySelectorAll('[data-bajar]').length ===
+        document.querySelectorAll('[data-play]').length);
+      T('cada deteccion se puede compartir',
+        document.querySelectorAll('[data-compartir]').length > 0);
+      T('se puede descargar la carpeta de la especie',
+        !!document.querySelector('[data-carpeta]'));
+
+      // Sin servidor no hay audio: tiene que decirlo, no fallar en silencio.
+      document.querySelector('[data-bajar]').click();
+      await dormir(900);
+      T('descargar en demostracion explica que falta el servidor',
+        document.body.textContent.includes('necesitan un servidor'),
+        limpio((document.querySelector('.tostada') || {}).textContent));
+    }
   }
 
   // --- estadisticas ---

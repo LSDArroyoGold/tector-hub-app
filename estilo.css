@@ -172,7 +172,10 @@ a{color:var(--terra-ink)}
    dejaba comiendose media pantalla y tapando las cuatro detecciones de
    abajo. En un telefono no llega a este tope y manda la proporcion. */
 .destacada .foto{max-height:min(38vh,300px)}
-.foto.chica{aspect-ratio:1;border-radius:8px}
+/* La miniatura de una fila NO puede heredar el width:100% de .foto: dentro
+   de un renglon flex se comia todo el ancho y empujaba el nombre de la
+   especie fuera de la vista. Ancho fijo y sin crecer. */
+.foto.chica{width:54px;height:54px;flex:none;aspect-ratio:1;border-radius:8px}
 .sinfoto{display:flex;align-items:center;justify-content:center;
   background:var(--sunk);color:var(--rule2)}
 .sinfoto svg{width:38%;height:38%}
@@ -208,6 +211,14 @@ a{color:var(--terra-ink)}
 .onda i.son{opacity:1}
 .tiempo{font-family:var(--m);font-size:11px;color:var(--mut);flex:none;
   min-width:32px;text-align:right}
+
+/* Boton de solo icono (descargar, compartir). 36px de lado: por debajo de
+   eso deja de ser comodo de tocar en un telefono. */
+.ico{width:36px;height:36px;border-radius:9px;border:1px solid var(--rule);
+  background:var(--card);color:var(--ink2);flex:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;padding:0}
+.ico:active{background:var(--sunk)}
+.ico svg{width:17px;height:17px;display:block}
 
 /* ---------- graficos ---------- */
 .barras{display:flex;align-items:flex-end;gap:2px;height:74px;margin:8px 0 4px}

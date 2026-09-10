@@ -393,6 +393,43 @@ const API = (() => {
       return `${base()}/dispositivos/${serie}/audio?ruta=${encodeURIComponent(ruta)}`;
     },
 
+    /* Descargas.
+     *
+     * No se puede usar un <a download> apuntando al endpoint: la API pide el
+     * token en una cabecera, y un <a> no manda cabeceras. Hay que bajar el
+     * archivo con fetch y despues entregarselo al navegador como blob.
+     *
+     * Devuelve {blob, nombre} o lanza ErrorAPI. */
+    async bajarArchivo(ruta, nombre) {
+      if (demo()) {
+        throw new ErrorAPI(
+          'Las descargas necesitan un servidor conectado. En modo '
+          + 'demostración no hay archivos de audio reales.', 0);
+      }
+      const resp = await fetch(base() + ruta,
+        { headers: { Authorization: 'Bearer ' + token() } });
+      if (!resp.ok) {
+        let detalle = `No se pudo descargar (${resp.status}).`;
+        try { detalle = (await resp.json()).detail || detalle; } catch (e) { /* */ }
+        throw new ErrorAPI(detalle, resp.status);
+      }
+      // El servidor propone el nombre en Content-Disposition; si no viene,
+      // se usa el que pidio quien llamo.
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const m = /filename="([^"]+)"/.exec(cd);
+      return { blob: await resp.blob(), nombre: (m && m[1]) || nombre };
+    },
+
+    rutaAudio(serie, ruta) {
+      return `/dispositivos/${serie}/audio?ruta=${encodeURIComponent(ruta)}`;
+    },
+
+    rutaCarpeta(serie, fecha, especie) {
+      const q = new URLSearchParams({ fecha });
+      if (especie) q.set('especie', especie);
+      return `/dispositivos/${serie}/descargar?${q}`;
+    },
+
     urlFoto(especieCarpeta) {
       if (!especieCarpeta) return null;
       if (demo()) {

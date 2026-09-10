@@ -93,6 +93,8 @@ const App = (() => {
     pausa: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>',
     tilde: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6"/></svg>',
     cruz: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    bajar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11m0 0 4-4m-4 4-4-4"/><path d="M4 18h16"/></svg>',
+    compartir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/></svg>',
     campana: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>',
   };
 
@@ -273,6 +275,77 @@ const App = (() => {
     }
   });
   AUDIO.addEventListener('ended', detener);
+
+  /* ---------------- descargar y compartir ----------------
+   *
+   * Los dos caminos empiezan igual --hay que traerse el archivo con el token
+   * de sesion, porque un <a download> no manda cabeceras-- y se separan al
+   * final: uno se lo pasa al navegador para que lo guarde, el otro al menu de
+   * compartir del sistema.
+   *
+   * Compartir solo existe si el navegador soporta enviar archivos. En Chrome
+   * de Android si; en un escritorio casi nunca, y ahi el boton avisa en vez
+   * de no hacer nada. */
+  function guardarBlob(blob, nombre) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Sin esto el blob queda en memoria hasta recargar la pagina.
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  async function traer(ruta, nombre, textoEspera) {
+    toast(textoEspera, 60000);
+    try {
+      const r = await API.bajarArchivo(ruta, nombre);
+      const t = $('.tostada'); if (t) t.remove();
+      return r;
+    } catch (err) {
+      const t = $('.tostada'); if (t) t.remove();
+      toast(err.message, 5000);
+      return null;
+    }
+  }
+
+  async function descargarAudio(ruta) {
+    const d = activo();
+    const nombre = ruta.split('/').pop();
+    const r = await traer(API.rutaAudio(d.serie, ruta), nombre, 'Descargando…');
+    if (r) { guardarBlob(r.blob, r.nombre); toast('Descargado'); }
+  }
+
+  async function compartirAudio(ruta) {
+    const d = activo();
+    const nombre = ruta.split('/').pop();
+    if (!navigator.canShare) {
+      toast('Este navegador no puede compartir archivos. Usá descargar.', 4500);
+      return;
+    }
+    const r = await traer(API.rutaAudio(d.serie, ruta), nombre, 'Preparando…');
+    if (!r) return;
+    const archivo = new File([r.blob], r.nombre, { type: 'audio/mpeg' });
+    if (!navigator.canShare({ files: [archivo] })) {
+      toast('Este navegador no puede compartir audio. Usá descargar.', 4500);
+      return;
+    }
+    try {
+      await navigator.share({ files: [archivo], title: r.nombre });
+    } catch (e) {
+      // AbortError = la persona cerro el menu de compartir. No es un error.
+      if (e.name !== 'AbortError') toast('No se pudo compartir.');
+    }
+  }
+
+  async function descargarCarpeta(fecha, especie) {
+    const d = activo();
+    const nombre = `Tector${d.serie}_${fecha}${especie ? '_' + especie : ''}.zip`;
+    const r = await traer(API.rutaCarpeta(d.serie, fecha, especie || null),
+                          nombre, 'Armando el zip… puede tardar');
+    if (r) { guardarBlob(r.blob, r.nombre); toast('Descargado'); }
+  }
 
   /* ---------------- piezas de UI ---------------- */
   /* Si la foto no carga, en su lugar va el isotipo.
@@ -539,7 +612,9 @@ const App = (() => {
     return `<div class="pantalla con-barra">
       ${encabezado(fecha, { volver: '/cantos', sub: `${grupos.length} especies` })}
       <div class="scroll">
-        <div class="t cero" style="margin-top:12px">${grupos.map((g) => `
+        <button class="b sec chica" style="margin-top:14px"
+          data-carpeta="${esc(fecha)}|">↓ Descargar el día entero · zip</button>
+        <div class="t cero">${grupos.map((g) => `
           <button class="fila" data-especie="${esc(g.carpeta)}">
             ${foto({ especie_carpeta: g.carpeta, especie: g.nombre }, 'chica')}
             <div class="crece"><div style="font-weight:600">${esc(g.nombre)}</div>
@@ -556,12 +631,18 @@ const App = (() => {
         { volver: '/cantos/' + fecha, sub: `${fecha} · ${dets.length} detecciones` })}
       <div class="scroll">
         ${info.nombre_cientifico ? `<p class="cient" style="margin:12px 0 4px">${esc(info.nombre_cientifico)}</p>` : ''}
+        <button class="b sec chica" data-carpeta="${esc(fecha)}|${esc(especie)}">
+          ↓ Descargar las ${dets.length} · zip</button>
         ${dets.map((d) => `<div class="t">
           <div class="entre"><span class="mono" style="font-weight:600">${esc(d.hora)}</span>
             ${pillConfianza(d.confianza)}</div>
           ${ondaHTML(d.ruta)}
-          <div class="mini mono" style="margin-top:6px;word-break:break-all;font-size:9.5px">
-            ${esc(d.ruta.split('/').pop())}</div></div>`).join('')}
+          <div class="entre" style="margin-top:8px;gap:7px">
+            <span class="mini mono" style="word-break:break-all;font-size:9.5px;flex:1">
+              ${esc(d.ruta.split('/').pop())}</span>
+            <button class="ico" data-bajar="${esc(d.ruta)}" aria-label="Descargar">${IC.bajar}</button>
+            <button class="ico" data-compartir="${esc(d.ruta)}" aria-label="Compartir">${IC.compartir}</button>
+          </div></div>`).join('')}
       </div>${barra('cantos')}</div>`;
   };
 
@@ -1219,6 +1300,17 @@ const App = (() => {
       const ruta = play.dataset.play;
       const d = activo();
       reproducir(play, d ? API.urlAudio(d.serie, ruta) : null);
+      return;
+    }
+
+    const bajar = t.closest('[data-bajar]');
+    if (bajar) { await descargarAudio(bajar.dataset.bajar); return; }
+    const comp = t.closest('[data-compartir]');
+    if (comp) { await compartirAudio(comp.dataset.compartir); return; }
+    const carp = t.closest('[data-carpeta]');
+    if (carp) {
+      const [fecha, especie] = carp.dataset.carpeta.split('|');
+      await descargarCarpeta(fecha, especie);
       return;
     }
 
