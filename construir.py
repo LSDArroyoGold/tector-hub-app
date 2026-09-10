@@ -40,6 +40,7 @@ def main():
     css = (RAIZ / 'estilo.css').read_text(encoding='utf-8')
     api = (RAIZ / 'api.js').read_text(encoding='utf-8')
     fotos = (RAIZ / 'fotos-demo.js').read_text(encoding='utf-8')
+    catalogo = (RAIZ / 'catalogo.js').read_text(encoding='utf-8')
     app = (RAIZ / 'app.js').read_text(encoding='utf-8')
 
     # El service worker necesita ser un archivo aparte y un origen http(s).
@@ -56,9 +57,11 @@ def main():
         f'<style>\n{css}\n</style>')
     html = html.replace(
         '<script src="fotos-demo.js"></script>\n'
+        '<script src="catalogo.js"></script>\n'
         '<script src="api.js"></script>\n'
         '<script src="app.js"></script>',
         f'<script>\n{fotos}\n</script>\n'
+        f'<script>\n{catalogo}\n</script>\n'
         f'<script>\n{api}\n</script>\n'
         f'<script>\n{app}\n</script>')
     html = html.replace('<link rel="manifest" href="manifest.webmanifest">\n', '')

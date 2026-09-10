@@ -393,6 +393,65 @@ const API = (() => {
       return `${base()}/dispositivos/${serie}/audio?ruta=${encodeURIComponent(ruta)}`;
     },
 
+    /* ---------- reportes de error ----------
+     *
+     * No hay opcion de confirmar que la especie estaba bien, a proposito: si
+     * la hubiera, lo que llegaria seria una mezcla de "escuche y estaba
+     * bien" con "toque sin escuchar", indistinguibles. Asi un reporte
+     * significa siempre lo mismo. */
+    TIPOS_REPORTE: [
+      ['sin_ave', 'No hay ningún ave en este audio',
+       'Es ruido, viento, una persona, otro animal…'],
+      ['otra_desconocida', 'Hay un ave, pero no es esta especie',
+       'No sé cuál es'],
+      ['otra_conocida', 'Hay un ave, pero no es esta especie',
+       'Sé cuál es y la puedo elegir'],
+      ['audio_cortado', 'El canto está cortado o partido en dos',
+       'Empieza tarde, se corta antes de terminar, o es medio canto'],
+    ],
+
+    async reportar(serie, cuerpo) {
+      if (demo()) {
+        await espera(500);
+        return { ok: true, demo: true };
+      }
+      return pedir(`/dispositivos/${serie}/reportes`,
+                   { method: 'POST', body: cuerpo });
+    },
+
+    /* El catalogo de especies que el motor puede reconocer, para el selector
+     * del reporte. Viene como una sola cadena de miles de lineas (ver
+     * catalogo.js) y se parsea una sola vez, la primera vez que hace falta:
+     * armar los 6297 objetos en el arranque seria trabajo tirado para una
+     * pantalla que casi nunca se abre. */
+    _catalogo: null,
+    catalogo() {
+      if (this._catalogo) return this._catalogo;
+      if (typeof CATALOGO === 'undefined') return [];
+      this._catalogo = CATALOGO.split(String.fromCharCode(10)).map((l) => {
+        const [codigo, cientifico, comun] = l.split('|');
+        return { codigo, cientifico, comun,
+                 busqueda: (comun + ' ' + cientifico).toLowerCase() };
+      });
+      return this._catalogo;
+    },
+
+    buscarEspecies(texto, limite = 40) {
+      const q = (texto || '').trim().toLowerCase();
+      const todas = this.catalogo();
+      if (!q) return todas.slice(0, limite);
+      // Primero las que EMPIEZAN con lo buscado: escribiendo "hor" uno
+      // espera "Hornero" arriba, no una especie que lo tenga en el medio.
+      const empiezan = [], contienen = [];
+      for (const e of todas) {
+        const i = e.busqueda.indexOf(q);
+        if (i === 0 || e.comun.toLowerCase().startsWith(q)) empiezan.push(e);
+        else if (i > 0) contienen.push(e);
+        if (empiezan.length >= limite) break;
+      }
+      return empiezan.concat(contienen).slice(0, limite);
+    },
+
     /* Descargas.
      *
      * No se puede usar un <a download> apuntando al endpoint: la API pide el

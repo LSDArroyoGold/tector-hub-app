@@ -113,6 +113,7 @@ código— pero no figura en el menú de Cuenta; se llega desde la cinta de
 | `sw.js` | Service worker. Cachea el armazón; nunca datos. |
 | `construir.py` | Arma las versiones de un solo archivo en `dist/`. |
 | `fotos-demo.js` | Generado. Fotos del modo demostración, embebidas. |
+| `catalogo.js` | Generado. Las 6297 especies que el motor puede reconocer. |
 | `iconos/` | Generados de `Tector_isotipo.svg`. |
 
 Sin framework y sin dependencias. La app entera son tres archivos de texto.
@@ -167,6 +168,24 @@ se toca. Va con un velo gris encima, que desaparece al apagar el modo
 automático.
 
 ---
+
+## Reportar detecciones equivocadas
+
+Cada detección tiene, además de descargar y compartir, un botón para avisar
+que el motor se equivocó. Cuatro opciones: no hay ningún ave, hay un ave pero
+no es esta (no sé cuál), hay un ave pero no es esta (y la elijo de un buscador
+con las 6297 especies), y el canto está cortado o partido en dos.
+
+**No hay opción de confirmar que la especie estaba bien.** Si la hubiera, lo
+que llegaría al servidor sería una mezcla de «escuché y estaba bien» con
+«toqué sin escuchar», indistinguibles entre sí. Así, un reporte significa
+siempre lo mismo.
+
+El catálogo del selector sale del vocabulario de **BirdSet**, que es el filtro
+final del pipeline y por lo tanto el límite real de lo que el sistema puede
+llegar a decir. Lo genera `herramientas/generar_catalogo.py`. Se descarta
+`perch2_labels.csv` a propósito: Perch2 clasifica también ranas e insectos, y
+eso en un selector de aves no ayuda.
 
 ## Qué falta
 

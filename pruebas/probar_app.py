@@ -62,6 +62,8 @@ GUION = r"""
   };
   const txt = () => document.getElementById('app').textContent;
   const hay = (s) => txt().includes(s);
+  // Los modales cuelgan de <body>, no de #app: hay() no los ve.
+  const hay2 = (s) => document.body.textContent.includes(s);
   const limpio = (s) => (s || '').replace(/\s+/g, ' ').trim().slice(0, 60);
 
   volcar();
@@ -169,6 +171,48 @@ GUION = r"""
         document.querySelectorAll('[data-compartir]').length > 0);
       T('se puede descargar la carpeta de la especie',
         !!document.querySelector('[data-carpeta]'));
+      T('cada deteccion se puede reportar',
+        document.querySelectorAll('[data-reportar]').length ===
+        document.querySelectorAll('[data-play]').length);
+
+      // --- reporte de error ---
+      document.querySelector('[data-reportar]').click();
+      await dormir(700);
+      T('el reporte abre las opciones', hay2('Ayudanos a mejorar'));
+      T('ofrece los cuatro tipos de problema',
+        document.querySelectorAll('.hoja [data-elegir]').length === 4,
+        document.querySelectorAll('.hoja [data-elegir]').length + ' opciones');
+      T('NO ofrece confirmar que la especie estaba bien',
+        !document.querySelector('.hoja').textContent.toLowerCase().includes('correcta la especie')
+        && document.querySelector('.hoja').textContent.includes('Solo se reportan errores'));
+
+      // "se cual es" tiene que abrir el selector con el catalogo entero
+      document.querySelector('[data-elegir="otra_conocida"]').click();
+      await dormir(800);
+      T('elegir "sé cuál es" abre el selector de especies',
+        !!document.getElementById('bq'));
+      const filas0 = document.querySelectorAll('.hoja [data-cod]').length;
+      T('el selector lista especies del catálogo', filas0 > 5, filas0 + ' visibles');
+      const bq = document.getElementById('bq');
+      bq.value = 'hornero';
+      bq.dispatchEvent(new Event('input', { bubbles: true }));
+      await dormir(500);
+      const prim = document.querySelector('.hoja [data-cod] .crece div');
+      T('la búsqueda encuentra el Hornero',
+        !!prim && prim.textContent.toLowerCase().includes('hornero'),
+        prim && prim.textContent);
+      document.querySelector('.hoja [data-cod]').click();
+      await dormir(700);
+      T('confirma antes de enviar el reporte',
+        document.body.textContent.includes('¿Enviar el reporte?'));
+      T('el resumen muestra la especie elegida',
+        (document.querySelector('.cambios') || {}).textContent
+          && document.querySelector('.cambios').textContent.includes('Hornero'));
+      document.querySelector('[data-r="si"]').click();
+      await dormir(900);
+      T('en demostración avisa que no se envía a ningún lado',
+        document.body.textContent.includes('no se envía'),
+        limpio((document.querySelector('.tostada') || {}).textContent));
 
       // Sin servidor no hay audio: tiene que decirlo, no fallar en silencio.
       document.querySelector('[data-bajar]').click();
@@ -255,7 +299,8 @@ GUION = r"""
     !document.querySelector('.fila[data-ir="/servidor"]'));
   T('cuenta muestra el credito del laboratorio',
     hay('Laboratorio de Sistemas Dinámicos'));
-  T('el credito nombra al departamento', hay('Depto. de Física, FCEyN, UBA'));
+  T('el credito nombra al departamento',
+    hay('Departamento de Física, FCEyN, UBA'));
 
   // Atribucion de las fotos: es una obligacion de las licencias CC, no un
   // adorno. Tiene que estar y tiene que poder llegarse al original.

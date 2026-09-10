@@ -15,7 +15,7 @@
  */
 const CACHE = 'tector-hub-v1';
 const ARMAZON = [
-  './', './index.html', './estilo.css', './fotos-demo.js', './api.js', './app.js',
+  './', './index.html', './estilo.css', './fotos-demo.js', './catalogo.js', './api.js', './app.js',
   './manifest.webmanifest',
   './iconos/icono-192.png', './iconos/icono-512.png',
   './iconos/favicon-64.png', './iconos/logo-lsd.png',

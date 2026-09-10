@@ -100,6 +100,7 @@ const App = (() => {
     cruz: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     bajar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11m0 0 4-4m-4 4-4-4"/><path d="M4 18h16"/></svg>',
     compartir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/></svg>',
+    reportar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/><path d="M10.3 4.2 2.9 17.4a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/></svg>',
     campana: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>',
   };
 
@@ -287,6 +288,107 @@ const App = (() => {
   });
   AUDIO.addEventListener('ended', detener);
 
+  /* ---------------- reportar un error ----------------
+   *
+   * Solo errores: no hay opcion de confirmar que la especie estaba bien. Si
+   * la hubiera, lo que llegaria seria una mezcla de "escuche y estaba bien"
+   * con "toque sin escuchar", indistinguibles entre si, y el dato no
+   * serviria para nada. Asi, un reporte significa siempre lo mismo.
+   */
+  function elegirEspecie() {
+    return new Promise((resolve) => {
+      const velo = document.createElement('div');
+      velo.className = 'velo';
+      velo.innerHTML = `
+        <div class="hoja" role="dialog" aria-modal="true" style="max-height:88vh">
+          <h2>¿Qué ave era?</h2>
+          <div class="campo" style="margin:10px 0 8px">
+            <input id="bq" placeholder="Buscar por nombre común o científico"
+              autocomplete="off" autocapitalize="none"></div>
+          <div id="res" style="max-height:52vh;overflow-y:auto;
+            margin:0 -4px"></div>
+          <button class="b sec chica" data-cerrar style="margin-top:10px">Cancelar</button>
+        </div>`;
+      const res = velo.querySelector('#res');
+      const pintarLista = (texto) => {
+        const l = API.buscarEspecies(texto);
+        res.innerHTML = l.length ? l.map((e) => `
+          <button class="fila" data-cod="${esc(e.codigo)}"
+            style="border-radius:8px;padding:9px 8px">
+            <div class="crece"><div style="font-weight:600;font-size:13.5px">${esc(e.comun)}</div>
+              <div class="cient" style="margin:0">${esc(e.cientifico)}</div></div>
+          </button>`).join('')
+          : `<p class="mini" style="padding:12px 6px">Ninguna especie coincide.
+             El catálogo tiene ${API.catalogo().length} especies, todas con su
+             nombre en inglés y en latín.</p>`;
+      };
+      pintarLista('');
+      const buscar = velo.querySelector('#bq');
+      // input y no keyup: tambien dispara al pegar o al dictar.
+      buscar.addEventListener('input', () => pintarLista(buscar.value));
+      velo.addEventListener('click', (ev) => {
+        if (ev.target === velo || ev.target.closest('[data-cerrar]')) {
+          velo.remove(); return resolve(null);
+        }
+        const b = ev.target.closest('[data-cod]');
+        if (!b) return;
+        const e = API.catalogo().find((x) => x.codigo === b.dataset.cod);
+        velo.remove();
+        resolve(e || null);
+      });
+      document.body.appendChild(velo);
+      buscar.focus();
+    });
+  }
+
+  async function reportarDeteccion(ruta) {
+    const d = activo();
+    const nombre = ruta.split('/').pop();
+
+    const tipo = await hoja(`
+      <h2>Ayudanos a mejorar el Tector</h2>
+      <p class="chico">¿Qué tiene de malo esta detección?</p>
+      <p class="mini mono" style="word-break:break-all">${esc(nombre)}</p>
+      ${API.TIPOS_REPORTE.map(([id, titulo, sub]) => `
+        <button class="opcion" data-elegir="${id}" style="align-items:flex-start">
+          <span><span class="tit">${esc(titulo)}</span>
+            <div class="mini">${esc(sub)}</div></span></button>`).join('')}
+      <p class="mini" style="margin-top:12px">Solo se reportan errores: no hay
+        opción de confirmar que la especie estaba bien. Un reporte significa
+        siempre lo mismo, y así el dato sirve.</p>`);
+    if (!tipo) return;
+
+    let especie = null;
+    if (tipo === 'otra_conocida') {
+      especie = await elegirEspecie();
+      if (!especie) return;
+    }
+
+    const etiqueta = (API.TIPOS_REPORTE.find((t) => t[0] === tipo) || [])[1];
+    const ok = await confirmar({
+      titulo: '¿Enviar el reporte?', seguir: false, confirmar: 'Enviar',
+      cancelar: 'Cancelar',
+      cambios: [
+        ['Problema', etiqueta],
+        ...(especie ? [['Especie correcta', especie.comun]] : []),
+      ],
+      nota: 'El reporte viaja al servidor del laboratorio junto con la ruta '
+        + 'del audio, para poder volver a escucharlo.',
+    });
+    if (!ok) return;
+
+    try {
+      const r = await API.reportar(d.serie, {
+        ruta, tipo, especie_sugerida: especie ? especie.codigo : null,
+      });
+      toast(r.demo
+        ? 'En modo demostración el reporte no se envía a ningún lado.'
+        : 'Gracias. El reporte quedó registrado.', 4000);
+    } catch (err) {
+      toast(err.message, 4500);
+    }
+  }
+
   /* ---------------- descargar y compartir ----------------
    *
    * Los dos caminos empiezan igual --hay que traerse el archivo con el token
@@ -459,7 +561,7 @@ const App = (() => {
         <span>Desarrollado por el</span>
         <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
         <span>Laboratorio de Sistemas Dinámicos<br>
-          Depto. de Física, FCEyN, UBA</span>
+          Departamento de Física, FCEyN, UBA</span>
       </div>
     </div></div>`;
 
@@ -511,7 +613,9 @@ const App = (() => {
               ${pillConfianza(primera.confianza)}</div>
             ${ondaHTML(primera.ruta)}
             <div class="entre" style="margin-top:7px">
-              <span class="mini mono">${esc(primera.fecha)} · ${esc(primera.hora)}</span></div>
+              <span class="mini mono">${esc(primera.fecha)} · ${esc(primera.hora)}</span>
+              <button class="ico" data-reportar="${esc(primera.ruta)}"
+                aria-label="Reportar un problema">${IC.reportar}</button></div>
             ${creditoFotoHTML(primera)}
           </div></div>
         <div class="grilla4">
@@ -659,6 +763,8 @@ const App = (() => {
               ${esc(d.ruta.split('/').pop())}</span>
             <button class="ico" data-bajar="${esc(d.ruta)}" aria-label="Descargar">${IC.bajar}</button>
             <button class="ico" data-compartir="${esc(d.ruta)}" aria-label="Compartir">${IC.compartir}</button>
+            <button class="ico" data-reportar="${esc(d.ruta)}"
+              aria-label="Reportar un problema">${IC.reportar}</button>
           </div></div>`).join('')}
       </div>${barra('cantos')}</div>`;
   };
@@ -746,7 +852,7 @@ const App = (() => {
           <img src="iconos/logo-lsd.png" alt="Laboratorio de Sistemas Dinámicos">
           <span>Desarrollado por el<br>
             <b>Laboratorio de Sistemas Dinámicos</b><br>
-            Depto. de Física, FCEyN, UBA</span></div>
+            Departamento de Física, FCEyN, UBA</span></div>
       </div>${barra('cuenta')}</div>`;
   };
 
@@ -1394,6 +1500,9 @@ const App = (() => {
       reproducir(play, d ? API.urlAudio(d.serie, ruta) : null);
       return;
     }
+
+    const rep = t.closest('[data-reportar]');
+    if (rep) { await reportarDeteccion(rep.dataset.reportar); return; }
 
     const bajar = t.closest('[data-bajar]');
     if (bajar) { await descargarAudio(bajar.dataset.bajar); return; }
