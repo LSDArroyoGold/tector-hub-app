@@ -22,11 +22,19 @@ const ARMAZON = [
 ];
 
 self.addEventListener('install', (ev) => {
+  // skipWaiting PRIMERO y sin condiciones. Antes colgaba del .then() del
+  // cacheo: si addAll fallaba --y addAll falla entero si falla UN archivo--
+  // el worker se quedaba esperando para siempre, sin activarse nunca. Un
+  // service worker que no llega a activo no controla la pagina, y Chrome no
+  // ofrece instalar la app.
+  self.skipWaiting();
+
+  // Cada archivo por separado, para que uno que falte no se lleve puestos a
+  // los demas. Lo que no entre al cache simplemente se pedira a la red.
   ev.waitUntil(
-    caches.open(CACHE)
-      .then((c) => c.addAll(ARMAZON))
-      .then(() => self.skipWaiting())
-      .catch(() => { /* si falla un archivo, igual se instala */ })
+    caches.open(CACHE).then((c) => Promise.all(
+      ARMAZON.map((u) => c.add(u).catch(() => { /* ese no, los otros si */ }))
+    ))
   );
 });
 

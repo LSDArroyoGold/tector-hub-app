@@ -23,7 +23,36 @@ const App = (() => {
   const E = {
     ruta: '', usuario: null, dispositivos: [], activo: null,
     combinado: false, cargando: false, datos: {}, sync: null,
+    // Instalacion como app: 'prompt' guarda el evento que dispara el
+    // dialogo nativo. Ver capturarInstalacion().
+    prompt: null, instalada: false, sw: 'sin registrar',
   };
+
+  /* INSTALAR LA APP
+   *
+   * Chrome no deja abrir su dialogo de instalacion cuando uno quiere: avisa
+   * con beforeinstallprompt que ya se puede, y hay que guardar ese evento
+   * para usarlo despues, cuando la persona toque un boton.
+   *
+   * Existe este boton propio porque el item "Instalar aplicación" del menu
+   * de Chrome es dificil de encontrar, aparece con otro nombre segun la
+   * version, y a veces tarda en aparecer --Chrome espera a que el usuario
+   * haya interactuado con la pagina antes de considerarla instalable. */
+  function capturarInstalacion() {
+    window.addEventListener('beforeinstallprompt', (ev) => {
+      ev.preventDefault();
+      E.prompt = ev;
+      const b = document.querySelector('[data-accion="instalar"]');
+      if (b) b.hidden = false;
+    });
+    window.addEventListener('appinstalled', () => {
+      E.prompt = null; E.instalada = true;
+      toast('Tector Hub quedó instalada');
+    });
+    // display-mode standalone = ya se esta corriendo desde el icono.
+    E.instalada = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+  }
 
   /* ---------------- iconos ---------------- */
   /* El isotipo del proyecto: el pajaro esta hecho de barras horizontales,
@@ -332,6 +361,8 @@ const App = (() => {
             value="${API.enDemo() ? 'demo' : ''}"></div>
         <div id="errLogin"></div>
         <button class="b" data-accion="entrar">Entrar</button>
+        <button class="b sec chica" data-accion="instalar" ${E.prompt ? '' : 'hidden'}>
+          Instalar en el teléfono</button>
         <p class="mini" style="text-align:center">¿No tenés cuenta? Pedila al laboratorio.</p>
       </div>
       <div style="flex:1"></div>
@@ -603,7 +634,11 @@ const App = (() => {
         }).join('')}</div>
         <button class="b chica" data-ir="/sync">+ Agregar un Tector</button>
         <span class="rot">Aplicación</span>
+        <button class="b sec chica" data-accion="instalar" ${E.prompt ? '' : 'hidden'}>
+          Instalar en el teléfono</button>
         <div class="t cero">
+          <button class="fila" data-accion="diagnostico"><span class="crece">Estado de la app</span>
+            <span class="mini">${E.instalada ? 'instalada' : 'en el navegador'}</span><span class="chev">›</span></button>
           <button class="fila" data-ir="/apariencia"><span class="crece">Apariencia</span><span class="chev">›</span></button>
           <button class="fila" data-ir="/notificaciones"><span class="crece">Notificaciones</span><span class="chev">›</span></button>
           <button class="fila" data-accion="salir"><span class="crece">Cerrar sesión</span><span class="chev">›</span></button>
@@ -1269,6 +1304,51 @@ const App = (() => {
 
     if (nombre === 'recargar') { limpiar(); pintar(); return; }
 
+    if (nombre === 'instalar') {
+      if (!E.prompt) { await accion('diagnostico'); return; }
+      E.prompt.prompt();
+      const r = await E.prompt.userChoice;
+      E.prompt = null;
+      if (r.outcome === 'accepted') toast('Instalando…');
+      pintar();
+      return;
+    }
+
+    if (nombre === 'diagnostico') {
+      const seguro = window.isSecureContext;
+      const std = window.matchMedia('(display-mode: standalone)').matches;
+      const fila = (k, v, ok) =>
+        `<div class="entre" style="padding:5px 0"><span class="chico">${esc(k)}</span>
+         <span class="mini" style="color:var(${ok ? '--ok' : '--avi'})">${esc(v)}</span></div>`;
+      await confirmar({
+        titulo: 'Estado de la app', seguir: false, cancelar: 'Cerrar',
+        confirmar: 'Copiar',
+        cambios: [
+          ['Servida por HTTPS', seguro ? 'sí' : 'NO'],
+          ['Service worker', E.sw],
+          ['Corriendo instalada', std ? 'sí' : 'no'],
+          ['Se puede instalar ahora', E.prompt ? 'sí' : 'todavía no'],
+        ], 
+        nota: !E.prompt && !std
+          ? 'Si el botón de instalar no aparece: Chrome pide HTTPS, un service '
+            + 'worker activo, y que hayas interactuado con la página. A veces '
+            + 'aparece recién al volver a entrar. En una pestaña de incógnito '
+            + 'nunca aparece.'
+          : null,
+      }).then(async (copiar) => {
+        if (copiar) {
+          const txt = [`origen: ${location.origin}`, `seguro: ${seguro}`,
+            `service worker: ${E.sw}`, `standalone: ${std}`,
+            `puede instalar: ${!!E.prompt}`,
+            `navegador: ${navigator.userAgent}`].join('
+');
+          try { await navigator.clipboard.writeText(txt); toast('Copiado'); }
+          catch (e) { toast('No se pudo copiar'); }
+        }
+      });
+      return;
+    }
+
     if (nombre === 'entrar') { await entrar(); return; }
 
     if (nombre === 'guardarServidor') {
@@ -1625,14 +1705,27 @@ const App = (() => {
   /* ---------------- arranque ---------------- */
   function iniciar() {
     aplicarTema();
+    capturarInstalacion();
     E.usuario = API.usuarioGuardado();
     window.addEventListener('hashchange', () => {
       if (!location.hash.startsWith('#/sync')) { pararReloj(); E.sync = null; }
       detener(); pintar();
     });
     pintar();
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(() => { /* http sin sw */ });
+    /* El service worker solo puede registrarse en un contexto seguro: HTTPS
+     * o localhost. Servida por HTTP simple en una IP de la red --el caso de
+     * la tailnet-- el navegador lo rechaza, la app anda igual pero sin
+     * offline y sin poder instalarse. Antes ese error se tragaba en
+     * silencio; ahora queda a la vista en Cuenta. */
+    if (!window.isSecureContext) {
+      E.sw = 'no disponible: la página no se sirve por HTTPS';
+    } else if (!('serviceWorker' in navigator)) {
+      E.sw = 'no disponible: el navegador no lo soporta';
+    } else {
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        E.sw = reg.active ? 'activo' : 'instalándose';
+        reg.addEventListener('updatefound', () => { E.sw = 'actualizándose'; });
+      }).catch((e) => { E.sw = 'falló: ' + e.message; });
     }
   }
 
