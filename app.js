@@ -914,7 +914,16 @@ const App = (() => {
           <p class="chico" style="margin:4px 0 0">Primera vez en esta estación.
             Registrada el ${esc(h.fecha)} a las ${esc(h.hora.slice(0, 5))}
             con ${h.confianza}% de confianza.</p>
-          ${ondaHTML(h.ruta)}</div>` : ''}
+          ${h.ruta ? ondaHTML(h.ruta) : `<p class="mini" style="margin:6px 0 0">
+            El audio de ese día ya no está en Drive. La detección se conserva
+            en el resumen diario, pero no se puede escuchar.</p>`}</div>` : ''}
+        ${s.dias_sin_audio?.length ? `<div class="aviso" style="margin-top:12px">
+          <span class="ic">i</span><div>${s.dias_sin_audio.length === 1
+            ? 'Hay 1 día'
+            : 'Hay ' + s.dias_sin_audio.length + ' días'} en este período cuyo
+            audio ya no está en Drive. Sus detecciones siguen contando acá
+            —salen del resumen diario que guarda el Tector— pero no aparecen
+            en Cantos y no se pueden escuchar.</div></div>` : ''}
         <span class="rot">Histograma de horarios</span>
         <div class="t">
           <div class="barras">${s.histograma_horas.map((v) =>

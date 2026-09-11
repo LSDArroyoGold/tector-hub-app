@@ -324,8 +324,13 @@ const API = (() => {
           confianza_media: +(conf.reduce((a, b) => a + b, 0) / conf.length).toFixed(1),
           hallazgos: nuevas.map((d) => ({
             especie: d.especie, fecha: d.fecha, hora: d.hora,
-            confianza: d.confianza, ruta: d.ruta,
+            confianza: d.confianza, ruta: d.ruta, desde_resumen: false,
           })),
+          /* Dias que cuentan en las estadisticas pero cuyo audio ya no esta
+           * en Drive. En la demostracion siempre esta todo, asi que va
+           * vacio: se declara igual para que la forma sea la misma que la
+           * del servidor y nadie tenga que adivinar si el campo existe. */
+          dias_sin_audio: [],
         };
       }
       return pedir(`/dispositivos/${serie}/estadisticas?dias=${dias}`);
