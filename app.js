@@ -535,8 +535,26 @@ const App = (() => {
       <button data-ir="/servidor">conectar un servidor</button></div>`;
   }
 
-  const cargando = (txt = 'Cargando…') =>
-    `<div class="centro"><div class="spin"></div><p class="chico">${esc(txt)}</p></div>`;
+  /* La nota de "esta tardando" aparece sola a los 4 segundos, no antes: si
+   * la carga es rapida nadie la ve, y si no lo es, la persona sabe que no se
+   * colgo y por que. El servidor corre en un telefono y le pide los datos a
+   * Drive; cuando Google lo hace esperar, esto puede llevar un minuto. */
+  const cargando = (txt = 'Cargando…') => {
+    avisarDemora();
+    return `<div class="centro"><div class="spin"></div><p class="chico">${esc(txt)}</p>
+      <p class="mini demora" hidden style="max-width:280px;text-align:center">
+        Está tardando más de lo normal. El servidor está pidiendo los datos a
+        Drive y a veces Google lo hace esperar. Puede llevar hasta un minuto.</p></div>`;
+  };
+  /* Un solo temporizador: cada pantalla de carga lo reinicia, y si la carga
+   * termina antes, la nota nunca llega a verse. */
+  let relojDemora = null;
+  function avisarDemora() {
+    clearTimeout(relojDemora);
+    relojDemora = setTimeout(() => {
+      document.querySelectorAll('.demora[hidden]').forEach((x) => { x.hidden = false; });
+    }, 4000);
+  }
 
   /* ---------------- pantallas ---------------- */
   const P = {};
@@ -902,7 +920,8 @@ const App = (() => {
     const h = s.hallazgos?.[0];
     return `<div class="pantalla con-barra">${cinta()}
       ${encabezado('Estadísticas', { sub: d ? (d.apodo || 'Tector ' + d.serie) : '',
-        derecha: '<span class="pill neu">30 días</span>' })}
+        derecha: `<button class="pill neu" style="border:0;cursor:pointer"
+          data-accion="cambiarDias" aria-label="Cambiar el período">${s.dias} días ▾</button>` })}
       <div class="scroll">
         <div class="cifras" style="margin-top:14px">
           <div class="cifra"><div class="n">${s.promedio_por_dia}</div><div class="d">detecciones por día</div></div>
@@ -1549,7 +1568,7 @@ const App = (() => {
         E.datos.dets = await API.detecciones(serie, { fecha, especie, limite: 500 });
         app.innerHTML = P.cantosEspecie(fecha, especie);
       } else if (ruta === '/datos') {
-        E.datos.stats = await API.estadisticas(serie);
+        E.datos.stats = await API.estadisticas(serie, E.datos.dias || 30);
         app.innerHTML = P.datos();
       } else if (ruta === '/cuenta') {
         app.innerHTML = P.cuenta();
@@ -1635,6 +1654,13 @@ const App = (() => {
 
   document.addEventListener('click', async (ev) => {
     const t = ev.target;
+
+    /* Un globo abierto se cierra tocando en cualquier otro lado. Antes solo
+     * lo cerraba la misma "i" que lo abria, y el "Entendido" de adentro era
+     * texto de adorno: la gente tocaba y no pasaba nada. */
+    if (!t.closest('.globo')) {
+      document.querySelectorAll('.globo .txt').forEach((x) => x.remove());
+    }
 
     const play = t.closest('[data-play]');
     if (play) {
@@ -1980,8 +2006,29 @@ const App = (() => {
           distribución real de aves del lugar.</p>
         <p style="margin:6px 0 0">Futuras versiones de TectorNet van a tratar
           de mejorar las dos cosas.</p>
-        <div class="mini" style="text-align:right;margin-top:8px">Entendido</div>`;
+        <div style="text-align:right;margin-top:10px">
+          <button class="pill neu" style="border:0;cursor:pointer" data-accion="cerrarGlobo">Entendido</button></div>`;
       g.appendChild(d);
+      return;
+    }
+
+    /* El período de las estadísticas. Era una etiqueta fija que decía
+     * "30 días" y parecía un botón sin serlo: la gente la tocaba y no pasaba
+     * nada. Ahora rota entre las tres ventanas que tienen sentido. */
+    if (nombre === 'cambiarDias') {
+      const orden = [7, 30, 90];
+      const actual = E.datos.dias || 30;
+      E.datos.dias = orden[(orden.indexOf(actual) + 1) % orden.length];
+      E.datos.stats = null;
+      pintar();
+      E.datos.stats = await API.estadisticas(serie, E.datos.dias);
+      pintar();
+      return;
+    }
+
+    if (nombre === 'cerrarGlobo') {
+      const txt = el.closest('.txt');
+      if (txt) txt.remove();
       return;
     }
 
@@ -1994,7 +2041,9 @@ const App = (() => {
       d.innerHTML = `<b style="color:var(--ink)">Puede tardar en aparecer</b><br>
         BirdWeather procesa las estaciones nuevas con sus propios tiempos. Tu
         Tector puede tardar varias horas en verse en el mapa aunque acá figure
-        como conectado. La demora es de BirdWeather, no de la app.`;
+        como conectado. La demora es de BirdWeather, no de la app.
+        <div style="text-align:right;margin-top:10px">
+          <button class="pill neu" style="border:0;cursor:pointer" data-accion="cerrarGlobo">Entendido</button></div>`;
       g.appendChild(d);
       return;
     }
