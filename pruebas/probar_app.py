@@ -488,6 +488,23 @@ def main():
               file=sys.stderr)
         return 2
 
+    # La prueba corre contra el BUNDLE, no contra los archivos sueltos: es un
+    # solo .html que Chrome puede abrir por file://, sin levantar un servidor.
+    # El precio es que el bundle se puede quedar viejo, y entonces las pruebas
+    # pasan contra codigo que ya no es el que se publica. Paso una vez: se
+    # cambio api.js, la suite dio 104 de 104, y estaba mirando la version
+    # anterior. Mejor que falle ruidosamente.
+    fuentes = [RAIZ / n for n in ('index.html', 'api.js', 'app.js',
+                                  'estilos.css', 'catalogo.js',
+                                  'fotos-demo.js')]
+    viejas = [f.name for f in fuentes
+              if f.exists() and f.stat().st_mtime > origen.stat().st_mtime]
+    if viejas:
+        print('dist/tector-hub.html es mas viejo que: ' + ', '.join(viejas),
+              file=sys.stderr)
+        print('Corré primero: python3 construir.py', file=sys.stderr)
+        return 2
+
     chrome = buscar_chrome()
     if not chrome:
         print('No se encontró Chrome ni Edge. Editá CHROMES en este archivo.',
@@ -499,6 +516,14 @@ def main():
     # virtual de Chrome y la pagina se vuelca antes de que el guion termine.
     s = re.sub(r'<link rel="preconnect"[^>]*>', '', s)
     s = re.sub(r'<link rel="stylesheet" href="https://fonts[^>]*>', '', s)
+    # El modo demostracion se fuerza acá, en la copia temporal. La app
+    # publicada apunta al servidor del laboratorio, pero estas pruebas
+    # ejercitan la INTERFAZ y tienen que poder correr sin red y sin servidor,
+    # en cualquier maquina. Sin esto, apuntar la app a un servidor real
+    # convierte media suite en roja por motivos que no tienen nada que ver
+    # con lo que se esta probando.
+    s = re.sub(r"const SERVIDOR_POR_DEFECTO = '[^']*';",
+               "const SERVIDOR_POR_DEFECTO = '';", s, count=1)
     s = s.replace('</body>', GUION + '\n</body>')
 
     tmp = Path(tempfile.mkdtemp(prefix='tector-prueba-'))

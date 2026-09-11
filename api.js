@@ -51,8 +51,14 @@ const Guardado = (() => {
  *
  * La pantalla de Servidor sigue existiendo como salida de emergencia (para
  * apuntar a un servidor de prueba sin recompilar nada), pero ya no figura en
- * el menu de Cuenta. Se llega desde la cinta de "modo demostración". */
-const SERVIDOR_POR_DEFECTO = '';
+ * el menu de Cuenta. Se llega desde la cinta de "modo demostración".
+ *
+ * El servidor corre en el S10e del laboratorio y sale a internet por Tailscale
+ * Funnel: HTTPS de verdad, con certificado propio, y quien entra NO necesita
+ * Tailscale. Eso es lo que permite que esta app se instale como PWA --Chrome
+ * no instala nada servido por HTTP-- y que la use alguien de afuera sin pedirle
+ * que se meta en una VPN. */
+const SERVIDOR_POR_DEFECTO = 'https://s10e-servidor-1.tail1b934d.ts.net';
 
 const API = (() => {
   const LS = {
