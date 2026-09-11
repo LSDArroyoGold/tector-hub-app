@@ -144,6 +144,12 @@ const App = (() => {
     if (!e) return { clase: 'mudo', texto: 'Sin datos todavía' };
     const horas = (Date.now() - new Date(e.generado).getTime()) / 36e5;
     if (horas > 26) return { clase: 'mudo', texto: `Sin datos ${haceCuanto(e.generado)}` };
+    /* 'desconocido' viene del estado reconstruido de un 1.1 cuando la ultima
+     * ventana quedo abierta y nunca se cerro: el equipo dejo de escribir en
+     * medio. Decir "grabando" ahi seria mentir; no saber es un dato mejor. */
+    if (e.estado === 'desconocido') {
+      return { clase: 'mudo', texto: 'Quedó una ventana sin cerrar' };
+    }
     if (e.estado === 'grabando') {
       return { clase: 'grabando', texto: `Grabando · hasta ${e.proxima_ventana?.hora || '—'}` };
     }
@@ -987,11 +993,20 @@ const App = (() => {
             ${esc(estadoDe(d).texto)}</span>
             <span class="mini">${esc(haceCuanto(e.generado))}</span></div>
           ${b ? `<div class="entre" style="margin-top:8px"><span class="chico">Batería</span>
-            <span class="mono">${b.voltaje_v} V · ${b.corriente_ma} mA</span></div>
+            <span class="mono">${b.porcentaje != null
+              ? b.porcentaje + ' %'
+              : b.voltaje_v + ' V · ' + b.corriente_ma + ' mA'}</span></div>
             ${b.throttled && b.throttled !== '0x0' ? `<div class="aviso cuidado" style="margin-top:8px">
               <span class="ic">!</span><div>La Raspberry reportó
               <b>throttling</b> (${esc(b.throttled)}): puede ser alimentación
               insuficiente o temperatura alta.</div></div>` : ''}` : ''}
+          ${e.detecciones_ultima_ventana != null ? `<div class="entre" style="margin-top:6px">
+            <span class="chico">Última ventana</span>
+            <span class="mono">${e.detecciones_ultima_ventana} detecciones</span></div>` : ''}
+          ${e.fuente === 'log' ? `<p class="mini" style="margin-top:8px">Este
+            Tector tiene la versión 1.1, que no informa su estado. Esto se
+            deduce de lo último que anotó en su registro, así que puede
+            estar desactualizado.</p>` : ''}
           ${e.version_software ? `<div class="entre" style="margin-top:6px">
             <span class="chico">Software</span><span class="mono">${esc(e.version_software)}</span></div>` : ''}
         </div>
