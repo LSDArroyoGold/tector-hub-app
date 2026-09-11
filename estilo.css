@@ -279,6 +279,7 @@ a{color:var(--terra-ink)}
 .globo>button{width:19px;height:19px;border-radius:50%;background:var(--teal);
   color:#fff;border:0;font-size:11px;font-weight:700;cursor:pointer;
   display:flex;align-items:center;justify-content:center;line-height:1}
+.enc .globo .txt{right:auto;left:-24px}
 .globo .txt{position:absolute;top:26px;right:-6px;width:min(280px,78vw);z-index:15;
   background:var(--card);border:1px solid var(--rule);border-radius:10px;
   padding:11px 12px;box-shadow:var(--sombra);font-size:12.5px;color:var(--ink2);

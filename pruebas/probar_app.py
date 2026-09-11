@@ -223,6 +223,25 @@ GUION = r"""
     }
   }
 
+  // La advertencia sobre la precision del modelo: tiene que estar en Cantos,
+  // y no estar siempre a la vista.
+  await irA('#/cantos');
+  T('la advertencia no se muestra sola', !document.querySelector('.enc .globo .txt'));
+  T('hay un globo para abrirla',
+    !!document.querySelector('[data-accion="avisoPrecision"]'));
+  document.querySelector('[data-accion="avisoPrecision"]').click();
+  await dormir(400);
+  T('la advertencia da el numero medido', hay2('89'));
+  T('lo traduce a algo entendible', hay2('de cada 100'));
+  T('avisa que la red es mas sensible a unas especies',
+    hay2('más sensible a unas especies'));
+  T('y que los conteos no miden abundancia real',
+    hay2('no significa que sea más abundante'));
+  T('cierra diciendo que se va a mejorar', hay2('Futuras versiones de TectorNet'));
+  document.querySelector('[data-accion="avisoPrecision"]').click();
+  await dormir(300);
+  T('se cierra al volver a tocarla', !document.querySelector('.enc .globo .txt'));
+
   // El selector de orden tiene que CAMBIAR algo, no solo marcarse. Antes
   // ofrecia seis criterios y solo dos hacian efecto.
   await irA('#/cantos');

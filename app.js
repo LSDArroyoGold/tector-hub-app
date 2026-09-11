@@ -807,9 +807,16 @@ const App = (() => {
     }
 
     return `<div class="pantalla con-barra">${cinta()}
-      ${encabezado('Cantos', { sub: d ? (d.apodo || 'Tector ' + d.serie) : '',
-        derecha: `<button class="pill neu" style="border:0;cursor:pointer"
-          data-accion="ordenar">${esc(etiqueta.split(',')[0])} ⌄</button>` })}
+      <header class="enc">
+        <span style="flex:none">${iso(24)}</span>
+        <h1 style="display:flex;align-items:center;gap:7px">Cantos
+          <span class="globo"><button data-accion="avisoPrecision"
+            aria-label="Sobre la precisión de las detecciones">i</button></span>
+          ${d ? `<div class="sub">${esc(d.apodo || 'Tector ' + d.serie)}</div>` : ''}
+        </h1>
+        <button class="pill neu" style="border:0;cursor:pointer"
+          data-accion="ordenar">${esc(etiqueta.split(',')[0])} ⌄</button>
+      </header>
       <div class="scroll">
         <p class="mini" style="margin:12px 2px 8px">${esc(etiqueta)}</p>
         ${cuerpo}
@@ -1903,6 +1910,41 @@ const App = (() => {
       E.datos.notifsSucio = false;
       $('#app').innerHTML = P.notificaciones(); enlazar();
       toast('Preferencias guardadas');
+      return;
+    }
+
+    /* Advertencia sobre la precision del modelo.
+     *
+     * Va como globo y no como texto fijo por lo mismo que el aviso de
+     * BirdWeather: una advertencia siempre visible se vuelve invisible a la
+     * semana. Pero tiene que estar, y en la pantalla donde alguien mira las
+     * detecciones y saca conclusiones. */
+    if (nombre === 'avisoPrecision') {
+      const g = el.closest('.globo');
+      const previo = g.querySelector('.txt');
+      if (previo) { previo.remove(); return; }
+      const d = document.createElement('div');
+      d.className = 'txt';
+      d.style.width = 'min(330px,86vw)';
+      d.style.maxHeight = '62vh';
+      d.style.overflowY = 'auto';
+      d.innerHTML = `
+        <b style="color:var(--ink)">El Tector no es perfecto</b>
+        <p style="margin:6px 0">Un estudio interno midió un <b>89&nbsp;% de
+          precisión</b>: de cada 100 aves detectadas, unas 11 están mal
+          etiquetadas en promedio. Es algo inevitable de un modelo de
+          aprendizaje automático enfrentado a un fenómeno tan variable como el
+          canto de las aves.</p>
+        <p style="margin:6px 0">Además, la red es <b>más sensible a unas
+          especies que a otras</b>, y produce más detecciones de esas. Que una
+          especie aparezca mucho en estas listas no significa que sea más
+          abundante en el sitio: puede significar solo que la red responde
+          mejor a su canto. Estos conteos no son una medida directa de la
+          distribución real de aves del lugar.</p>
+        <p style="margin:6px 0 0">Futuras versiones de TectorNet van a tratar
+          de mejorar las dos cosas.</p>
+        <div class="mini" style="text-align:right;margin-top:8px">Entendido</div>`;
+      g.appendChild(d);
       return;
     }
 
