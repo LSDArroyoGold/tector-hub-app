@@ -61,6 +61,9 @@ const Guardado = (() => {
 const SERVIDOR_POR_DEFECTO = 'https://s10e-servidor-1.tail1b934d.ts.net';
 
 const API = (() => {
+  /* Audios ya bajados, por ruta -> URL de blob. Ver urlAudio(). */
+  const cacheAudio = new Map();
+
   const LS = {
     servidor: 'tector.servidor',
     token: 'tector.token',
@@ -399,9 +402,40 @@ const API = (() => {
       return pedir('/resumen');
     },
 
-    urlAudio(serie, ruta) {
+    /* Audio para reproducir, como URL de blob local.
+     *
+     * NO se puede pasar la URL del servidor directo al <audio>: el endpoint
+     * exige Authorization, y un elemento <audio> no manda cabeceras. Antes
+     * esto devolvia la URL pelada y el servidor contestaba 401, asi que NO
+     * SONABA NADA contra un servidor real. En modo demostracion no se veia,
+     * porque ahi no hay audio.
+     *
+     * La alternativa era aceptar el token como parametro en la URL, pero un
+     * token en la barra de direcciones termina en historiales y logs.
+     *
+     * Se baja entero antes de sonar. Son clips de segundos --unos 400 KB--
+     * asi que la espera no se nota, y a cambio el <audio> tiene el archivo
+     * completo: la duracion y el arrastre del scrubber funcionan de una.
+     *
+     * Cache por ruta: volver a tocar play sobre algo ya escuchado no vuelve a
+     * pedirlo. Las URL de blob se revocan al reemplazarlas para no dejar el
+     * archivo colgado en memoria. */
+    async urlAudio(serie, ruta) {
       if (demo()) return null;
-      return `${base()}/dispositivos/${serie}/audio?ruta=${encodeURIComponent(ruta)}`;
+      const clave = serie + '|' + ruta;
+      if (cacheAudio.has(clave)) return cacheAudio.get(clave);
+      const { blob } = await this.bajarArchivo(
+        `/dispositivos/${serie}/audio?ruta=${encodeURIComponent(ruta)}`,
+        'canto.mp3');
+      const url = URL.createObjectURL(blob);
+      // Unas pocas alcanzan: se escucha de a una, y cada blob ocupa memoria.
+      if (cacheAudio.size >= 12) {
+        const vieja = cacheAudio.keys().next().value;
+        URL.revokeObjectURL(cacheAudio.get(vieja));
+        cacheAudio.delete(vieja);
+      }
+      cacheAudio.set(clave, url);
+      return url;
     },
 
     /* ---------- reportes de error ----------

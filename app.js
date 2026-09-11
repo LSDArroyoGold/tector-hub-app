@@ -1108,7 +1108,7 @@ const App = (() => {
         <div class="t" style="margin-top:14px"><div class="entre">
           <div style="flex:1;display:flex;align-items:center;gap:7px">
             <span class="sec">Publicar detecciones</span>
-            <span class="globo"><button data-accion="avisoBW" aria-label="Sobre la demora">i</button></span>
+            <span class="globo izq"><button data-accion="avisoBW" aria-label="Sobre la demora">i</button></span>
           </div>
           <button class="sw" role="switch" aria-checked="${b.conectado}"
             data-accion="toggleBW" aria-label="Publicar en BirdWeather"></button>
@@ -1640,7 +1640,20 @@ const App = (() => {
     if (play) {
       const ruta = play.dataset.play;
       const d = activo();
-      reproducir(play, d ? API.urlAudio(d.serie, ruta) : null);
+
+      /* Si es el que ya esta sonando, esto es pausa o reanudar: reproducir()
+       * lo resuelve antes de mirar la url, asi que no hace falta ir a buscar
+       * nada. Sin este atajo, cada pausa esperaria una promesa. */
+      if (sonando && sonando.id === ruta) { reproducir(play, null); return; }
+      if (!d) { reproducir(play, null); return; }
+
+      /* El audio se baja con fetch autenticado (ver API.urlAudio): puede
+       * tardar un segundo, y sin aviso parece que el boton no anda. */
+      play.classList.add('cargando');
+      API.urlAudio(d.serie, ruta)
+        .then((url) => reproducir(play, url))
+        .catch((e) => toast(e.mensaje || 'No se pudo traer el audio.'))
+        .finally(() => play.classList.remove('cargando'));
       return;
     }
 
