@@ -976,7 +976,9 @@ const App = (() => {
             ${String(s.histograma_horas.indexOf(max)).padStart(2, '0')}:00 y las
             ${String(s.histograma_horas.indexOf(max) + 1).padStart(2, '0')}:00,
             con ${max} detecciones.</p></div>
-        <span class="rot">Especies más registradas</span>
+        <span class="rot" style="display:inline-flex;align-items:center;gap:7px">Especies más registradas
+          <span class="globo izq"><button data-accion="avisoSensibilidad"
+            aria-label="Sobre qué significa este ranking">i</button></span></span>
         <div class="t"><div class="rank">${s.top_especies.slice(0, 6).map((t) => `
           <div class="r"><div class="e"><span>${esc(t.especie)}</span>
             <span class="v">${t.detecciones}</span></div>
@@ -2080,6 +2082,26 @@ const App = (() => {
     if (nombre === 'cerrarGlobo') {
       const txt = el.closest('.txt');
       if (txt) txt.remove();
+      return;
+    }
+
+    /* Al lado del ranking de especies, porque es exactamente ahi donde uno
+     * saca la conclusion equivocada: "la que mas aparece es la que mas hay". */
+    if (nombre === 'avisoSensibilidad') {
+      const g = el.closest('.globo');
+      const previo = g.querySelector('.txt');
+      if (previo) { previo.remove(); return; }
+      const d = document.createElement('div');
+      d.className = 'txt';
+      d.innerHTML = `<b style="color:var(--ink)">Más registrada no es más frecuente</b><br>
+        La red es más sensible a unas especies que a otras, y produce más
+        detecciones de esas. Que una especie encabece esta lista puede
+        significar solo que el modelo responde mejor a su canto, no que sea
+        más abundante en el sitio. Estos conteos no miden la distribución
+        real de aves del lugar.
+        <div style="text-align:right;margin-top:10px">
+          <button class="pill neu" style="border:0;cursor:pointer" data-accion="cerrarGlobo">Entendido</button></div>`;
+      g.appendChild(d);
       return;
     }
 
