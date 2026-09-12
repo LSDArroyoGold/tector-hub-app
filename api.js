@@ -455,6 +455,14 @@ const API = (() => {
        'Empieza tarde, se corta antes de terminar, o es medio canto'],
     ],
 
+    /* Los reportes que ya hizo esta cuenta, para marcar en las listas que
+     * canto ya fue reportado. Sin esto la persona no tenia forma de saberlo
+     * y podia reportar dos veces lo mismo. */
+    async misReportes() {
+      if (demo()) return { reportes: [] };
+      return pedir('/reportes');
+    },
+
     async reportar(serie, cuerpo) {
       if (demo()) {
         await espera(500);

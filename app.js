@@ -27,6 +27,9 @@ const App = (() => {
 
   const E = {
     ruta: '', usuario: null, dispositivos: [], activo: null,
+    /* ruta del audio -> tipo de error reportado. Se carga con los
+     * dispositivos y se actualiza al reportar. */
+    reportadas: new Map(),
     combinado: false, cargando: false, datos: {}, sync: null,
     // Instalacion como app: 'prompt' guarda el evento que dispara el
     // dialogo nativo. Ver capturarInstalacion().
@@ -387,6 +390,8 @@ const App = (() => {
       const r = await API.reportar(d.serie, {
         ruta, tipo, especie_sugerida: especie ? especie.codigo : null,
       });
+      if (!r.demo) E.reportadas.set(ruta, tipo);
+      pintar();
       toast(r.demo
         ? 'En modo demostración el reporte no se envía a ningún lado.'
         : 'Gracias. El reporte quedó registrado.', 4000);
@@ -480,6 +485,20 @@ const App = (() => {
     d.innerHTML = iso(64);
     img.replaceWith(d);
   };
+
+  /* El boton de reportar cambia de cara cuando ese canto ya fue reportado:
+   * color distinto y la etiqueta dice que. Sin eso la persona no tenia forma
+   * de saber si ya lo habia mandado. */
+  function botonReportar(ruta) {
+    const tipo = E.reportadas.get(ruta);
+    if (!tipo) {
+      return `<button class="ico" data-reportar="${esc(ruta)}"
+        aria-label="Reportar un problema">${IC.reportar}</button>`;
+    }
+    const etiqueta = (API.TIPOS_REPORTE.find((t) => t[0] === tipo) || [])[1] || tipo;
+    return `<button class="ico reportado" data-reportar="${esc(ruta)}"
+      aria-label="Ya reportado: ${esc(etiqueta)}" title="Ya reportado: ${esc(etiqueta)}">${IC.reportar}</button>`;
+  }
 
   function foto(det, clase = '') {
     const url = API.urlFoto(det.especie_carpeta);
@@ -638,8 +657,7 @@ const App = (() => {
             ${ondaHTML(primera.ruta)}
             <div class="entre" style="margin-top:7px">
               <span class="mini mono">${esc(primera.fecha)} · ${esc(primera.hora)}</span>
-              <button class="ico" data-reportar="${esc(primera.ruta)}"
-                aria-label="Reportar un problema">${IC.reportar}</button></div>
+              ${botonReportar(primera.ruta)}</div>
             ${creditoFotoHTML(primera)}
           </div></div>
         <div class="grilla4">
@@ -864,7 +882,7 @@ const App = (() => {
               ${esc(x.ruta.split('/').pop())}</span>
             <button class="ico" data-bajar="${esc(x.ruta)}" aria-label="Descargar">${IC.bajar}</button>
             <button class="ico" data-compartir="${esc(x.ruta)}" aria-label="Compartir">${IC.compartir}</button>
-            <button class="ico" data-reportar="${esc(x.ruta)}" aria-label="Reportar un problema">${IC.reportar}</button>
+            ${botonReportar(x.ruta)}
           </div></div>`).join('')}
       </div>${barra('cantos')}</div>`;
   };
@@ -904,9 +922,10 @@ const App = (() => {
               ${esc(d.ruta.split('/').pop())}</span>
             <button class="ico" data-bajar="${esc(d.ruta)}" aria-label="Descargar">${IC.bajar}</button>
             <button class="ico" data-compartir="${esc(d.ruta)}" aria-label="Compartir">${IC.compartir}</button>
-            <button class="ico" data-reportar="${esc(d.ruta)}"
-              aria-label="Reportar un problema">${IC.reportar}</button>
-          </div></div>`).join('')}
+            ${botonReportar(d.ruta)}
+          </div>${E.reportadas.has(d.ruta) ? `<p class="mini" style="margin:6px 0 0;color:var(--terra)">
+            Ya reportaste este canto: ${esc((API.TIPOS_REPORTE.find((t) => t[0] === E.reportadas.get(d.ruta)) || [])[1] || '')}.
+            Podés volver a reportarlo si te equivocaste.</p>` : ''}</div>`).join('')}
       </div>${barra('cantos')}</div>`;
   };
 
@@ -924,7 +943,10 @@ const App = (() => {
           data-accion="cambiarDias" aria-label="Cambiar el período">${s.dias} días ▾</button>` })}
       <div class="scroll">
         <div class="cifras" style="margin-top:14px">
-          <div class="cifra"><div class="n">${s.promedio_por_dia}</div><div class="d">detecciones por día</div></div>
+          <div class="cifra"><div class="n">${s.promedio_por_hora != null ? s.promedio_por_hora : s.promedio_por_dia}</div>
+            <div class="d">${s.promedio_por_hora != null
+              ? `detecciones por hora grabada${s.horas_grabacion_por_dia ? ` · ${s.horas_grabacion_por_dia} h/día` : ''}`
+              : 'detecciones por día'}</div></div>
           <div class="cifra"><div class="n">${s.especies_distintas}</div><div class="d">especies distintas</div></div>
         </div>
         ${h ? `<span class="rot">Hallazgo destacado</span>
@@ -1503,6 +1525,13 @@ const App = (() => {
 
   async function cargarDispositivos() {
     E.dispositivos = await API.dispositivos();
+    try {
+      const r = await API.misReportes();
+      E.reportadas = new Map((r.reportes || []).map((x) => [x.ruta, x.tipo]));
+    } catch (e) {
+      // Sin esto la app anda igual; solo no marca lo ya reportado.
+      E.reportadas = new Map();
+    }
     if (!E.activo || !E.dispositivos.some((d) => d.serie === E.activo)) {
       E.activo = E.dispositivos[0]?.serie || null;
     }

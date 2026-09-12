@@ -221,6 +221,9 @@ a{color:var(--terra-ink)}
   background:var(--card);color:var(--ink2);flex:none;cursor:pointer;
   display:flex;align-items:center;justify-content:center;padding:0}
 .ico:active{background:var(--sunk)}
+/* Ya reportado: se ve distinto para que nadie lo mande dos veces sin querer */
+.ico.reportado{background:var(--terra);border-color:var(--terra);color:#fff}
+.ico.reportado svg{stroke:#fff;fill:none}
 .ico svg{width:17px;height:17px;display:block}
 
 /* ---------- graficos ---------- */
