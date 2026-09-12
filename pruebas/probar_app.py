@@ -290,6 +290,19 @@ GUION = r"""
   T('el histograma tiene 24 barras',
     document.querySelectorAll('.barras i').length >= 24);
   T('muestra el ranking de especies', !!document.querySelector('.rank'));
+  T('ofrece el reporte diario en texto', !!document.querySelector('[data-ir="/reporte"]'));
+
+  // --- reporte diario en texto ---
+  await irA('#/reporte', 900);
+  T('el reporte se muestra como texto', !!document.querySelector('pre'));
+  T('con el encabezado de Tector Hub', hay('TECTOR HUB'));
+  T('se puede descargar', !!document.querySelector('[data-accion="descargarReporte"]'));
+  T('y compartir', !!document.querySelector('[data-accion="compartirReporte"]'));
+  T('tiene selector de dia', !!document.getElementById('fechaReporte'));
+  T('sin fotos', !document.querySelector('pre img'));
+  await irA('#/reporte-mail', 600);
+  T('la pantalla de mail tiene la casilla', !!document.getElementById('mailReporte'));
+  T('y dice a que hora se manda', hay('22:30'));
 
   // --- vista combinada ---
   await irA('#/todos');

@@ -998,8 +998,13 @@ const App = (() => {
             `<i style="height:${Math.max(4, x.detecciones / maxDia * 100)}%" title="${esc(x.fecha)}"></i>`).join('')}</div>
           <p class="mini">${esc(s.por_fecha[0]?.fecha || '')} → ${esc(s.por_fecha.at(-1)?.fecha || '')}</p></div>
         <div class="cifras">
-          <div class="cifra"><div class="n">${s.total}</div><div class="d">detecciones en ${s.dias} días</div></div>
+          <div class="cifra"><div class="n">${s.total}</div><div class="d">detecciones en ${s.dias >= 3650 ? 'total' : s.dias + ' días'}</div></div>
           <div class="cifra"><div class="n">${s.confianza_media ?? '—'}%</div><div class="d">confianza media</div></div>
+        </div>
+        <span class="rot">Reporte diario</span>
+        <div class="t cero">
+          <button class="fila" data-ir="/reporte"><span class="crece">Ver el reporte del día en texto</span><span class="chev">›</span></button>
+          <button class="fila" data-ir="/reporte-mail"><span class="crece">Recibirlo por mail todos los días</span><span class="chev">›</span></button>
         </div>
       </div>${barra('datos')}</div>`;
   };
@@ -1226,6 +1231,48 @@ const App = (() => {
       || Object.fromEntries(NOTIFS.map((n) => [n[0], n[3]])); }
     catch (e) { return Object.fromEntries(NOTIFS.map((n) => [n[0], n[3]])); }
   }
+
+  /* El reporte del dia, en texto plano. Se puede leer aca mismo, descargar
+   * como .txt o compartir. Sin fotos a proposito: es un registro. */
+  P.reporte = () => {
+    const d = activo();
+    const r = E.datos.reporte;
+    const fecha = E.datos.reporteFecha || new Date().toISOString().slice(0, 10);
+    return `<div class="pantalla">
+      ${encabezado('Reporte diario', { volver: '/datos', sub: d ? (d.apodo || 'Tector ' + d.serie) : '' })}
+      <div class="scroll">
+        <div class="entre" style="margin-top:12px;gap:8px">
+          <label class="chico" for="fechaReporte">Día</label>
+          <input id="fechaReporte" type="date" value="${esc(fecha)}" max="${new Date().toISOString().slice(0, 10)}"
+            style="flex:1;padding:8px 10px;border:1px solid var(--rule);border-radius:9px;background:var(--card);color:var(--ink);font:inherit">
+        </div>
+        ${r == null ? cargando('Armando el reporte…') : `
+        <pre style="white-space:pre-wrap;font-size:12.5px;line-height:1.45;background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:12px;margin:12px 0;overflow-x:auto">${esc(r)}</pre>
+        <div style="display:flex;gap:8px">
+          <button class="b" data-accion="descargarReporte" style="flex:1">Descargar .txt</button>
+          <button class="b sec" data-accion="compartirReporte" style="flex:1">Compartir</button>
+        </div>`}
+      </div></div>`;
+  };
+
+  P.reporteMail = () => {
+    const c = E.datos.reporteMail;
+    if (!c) return cargando();
+    return `<div class="pantalla">
+      ${encabezado('Reporte por mail', { volver: '/datos' })}
+      <div class="scroll">
+        <p class="chico" style="margin-top:14px">Todos los días a las <b>${esc(c.hora)}</b> el
+          servidor arma el reporte en texto de cada Tector de tu cuenta, lo guarda en Drive
+          (carpeta <i>Reportes</i>) y lo manda a esta casilla. Dejala vacía para no recibirlo.</p>
+        <label class="chico" for="mailReporte">Casilla</label>
+        <input id="mailReporte" type="email" value="${esc(c.email || '')}" placeholder="nombre@ejemplo.org"
+          autocomplete="email" style="width:100%;padding:10px;border:1px solid var(--rule);border-radius:9px;background:var(--card);color:var(--ink);font:inherit;margin:6px 0 12px">
+        <button class="b" data-accion="guardarReporteMail" style="width:100%">Guardar</button>
+        ${!c.correo_configurado ? `<div class="aviso cuidado" style="margin-top:12px"><span class="ic">!</span><div>
+          El servidor todavía no tiene configurado el envío de correo. La casilla queda guardada,
+          pero no va a llegar nada hasta que se configure.</div></div>` : ''}
+      </div></div>`;
+  };
 
   P.notificaciones = () => {
     const n = E.datos.notifs || notifs();
@@ -1563,6 +1610,10 @@ const App = (() => {
     try {
       if (ruta === '/servidor') { app.innerHTML = P.servidor(); return enlazar(); }
       if (ruta === '/apariencia') { app.innerHTML = P.apariencia(); return enlazar(); }
+      if (ruta === '/reporte-mail') {
+        if (!E.datos.reporteMail) E.datos.reporteMail = await API.reporteDiario();
+        app.innerHTML = P.reporteMail(); return enlazar();
+      }
       if (ruta === '/notificaciones') {
         if (!E.datos.notifs) { E.datos.notifs = notifs(); E.datos.notifsSucio = false; }
         app.innerHTML = P.notificaciones(); return enlazar();
@@ -1573,6 +1624,18 @@ const App = (() => {
       if (!E.dispositivos.length) { app.innerHTML = P.sinDispositivos(); return enlazar(); }
 
       const serie = E.activo;
+
+      if (ruta === '/reporte') {
+        const fecha = E.datos.reporteFecha || new Date().toISOString().slice(0, 10);
+        E.datos.reporteFecha = fecha;
+        if (E.datos.reporte == null || E.datos.reporteDe !== fecha) {
+          E.datos.reporte = null;
+          app.innerHTML = P.reporte(); enlazar();
+          E.datos.reporte = await API.reporteTexto(serie, fecha);
+          E.datos.reporteDe = fecha;
+        }
+        app.innerHTML = P.reporte(); return enlazar();
+      }
 
       if (ruta === '/') {
         const [dets, stats] = await Promise.all([
@@ -1692,6 +1755,14 @@ const App = (() => {
       });
     });
   }
+
+  document.addEventListener('change', (ev) => {
+    if (ev.target && ev.target.id === 'fechaReporte' && ev.target.value) {
+      E.datos.reporteFecha = ev.target.value;
+      E.datos.reporte = null;
+      pintar();
+    }
+  });
 
   document.addEventListener('click', async (ev) => {
     const t = ev.target;
@@ -2089,6 +2160,37 @@ const App = (() => {
 
     /* Volver dentro del asistente de sincronizacion: al paso inicial. Los
      * pasos viven todos en #/sync, asi que navegar no sirve. */
+    if (nombre === 'descargarReporte' || nombre === 'compartirReporte') {
+      const texto = E.datos.reporte || '';
+      const d = activo();
+      const nombreArch = `tector-${d ? d.serie : '0000'}-${E.datos.reporteFecha}.txt`;
+      const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+      if (nombre === 'descargarReporte') { guardarBlob(blob, nombreArch); return; }
+      const archivo = new File([blob], nombreArch, { type: 'text/plain' });
+      if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+        try { await navigator.share({ files: [archivo], title: nombreArch, text: texto }); }
+        catch (e) { if (e.name !== 'AbortError') toast('No se pudo compartir.'); }
+      } else if (navigator.share) {
+        try { await navigator.share({ title: nombreArch, text: texto }); }
+        catch (e) { if (e.name !== 'AbortError') toast('No se pudo compartir.'); }
+      } else {
+        toast('Este navegador no puede compartir. Usá descargar.', 4500);
+      }
+      return;
+    }
+
+    if (nombre === 'guardarReporteMail') {
+      const email = ($('#mailReporte')?.value || '').trim();
+      try {
+        const r = await API.guardarReporteDiario(email);
+        E.datos.reporteMail = { ...(E.datos.reporteMail || {}), email: r.email };
+        toast(r.demo ? 'En modo demostración no se guarda.'
+          : (r.aviso || (email ? 'Listo. Te llega todos los días.' : 'Apagado.')), r.aviso ? 6000 : 3500);
+        pintar();
+      } catch (err) { toast(err.message, 4500); }
+      return;
+    }
+
     if (nombre === 'syncAtras') {
       E.sync = {};
       pintar();

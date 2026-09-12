@@ -458,6 +458,37 @@ const API = (() => {
     /* Los reportes que ya hizo esta cuenta, para marcar en las listas que
      * canto ya fue reportado. Sin esto la persona no tenia forma de saberlo
      * y podia reportar dos veces lo mismo. */
+    /* ---------- reporte diario en texto ---------- */
+    async reporteTexto(serie, fecha) {
+      if (demo()) {
+        await espera(300);
+        const l = detsDemo(serie).filter((d) => d.fecha === fecha);
+        const porEsp = {};
+        l.forEach((d) => { porEsp[d.especie] = (porEsp[d.especie] || 0) + 1; });
+        return ['TECTOR HUB — Reporte diario', `Reserva (serie ${serie}) · ${fecha}`, '',
+          'Estado: en espera · batería 7.42 V · próxima ventana 18:09',
+          'Ventanas de grabación: 4 h por día', '', 'DETECCIONES DEL DÍA',
+          `  Total: ${l.length} · Especies distintas: ${Object.keys(porEsp).length}`,
+          '', 'ESPECIES (por cantidad de detecciones)',
+          ...Object.entries(porEsp).sort((x, y) => y[1] - x[1]).map(([e, c]) => `  ${String(c).padStart(4)}  ${e}`),
+          '', '(modo demostración)'].join(String.fromCharCode(10));
+      }
+      const resp = await fetch(`${base()}/dispositivos/${serie}/reporte?fecha=${fecha}`,
+        { headers: { Authorization: 'Bearer ' + token() } });
+      if (!resp.ok) throw new ErrorAPI('No se pudo generar el reporte (' + resp.status + ').', resp.status);
+      return resp.text();
+    },
+
+    async reporteDiario() {
+      if (demo()) return { email: '', hora: '22:30', correo_configurado: false };
+      return pedir('/cuenta/reporte-diario');
+    },
+
+    async guardarReporteDiario(email) {
+      if (demo()) { await espera(300); return { ok: true, email, demo: true }; }
+      return pedir('/cuenta/reporte-diario', { method: 'PUT', body: { email } });
+    },
+
     async misReportes() {
       if (demo()) return { reportes: [] };
       return pedir('/reportes');
