@@ -1278,7 +1278,7 @@ const App = (() => {
             <span class="rot" style="margin-top:0">Probá esto</span>
             <p class="chico" style="margin:0">· Confirmá que estás conectado a
               <span class="mono">Tector-####-setup</span><br>
-              · Mantené apretado 3 s el botón de setup del equipo<br>
+              · Mantené apretado 10 segundos el botón de setup del equipo<br>
               · Acercate más al dispositivo<br>
               · Verificá que tenga batería</p></div>
           <div style="flex:1"></div>
@@ -1467,7 +1467,7 @@ const App = (() => {
         <div class="t plana" style="width:100%;max-width:320px;text-align:left">
           <span class="rot" style="margin-top:0">Antes de empezar</span>
           <p class="chico" style="margin:0">1 · Encendé el Tector<br>
-            2 · Mantené apretado 3 s el botón de setup<br>
+            2 · Mantené apretado 10 segundos el botón de setup<br>
             3 · Quedate cerca del dispositivo</p></div>
         <div style="flex:1"></div>
         <button class="b" style="max-width:320px" data-accion="buscar">Empezar</button>
