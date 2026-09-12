@@ -463,6 +463,14 @@ const API = (() => {
       return pedir('/reportes');
     },
 
+    /* Deshacer un reporte propio. Borra el registro y la copia del audio en
+     * Drive: un reporte equivocado dejaria material de reentrenamiento con la
+     * etiqueta mal puesta por una persona, que es lo que mas pesa. */
+    async quitarReporte(id) {
+      if (demo()) { await espera(300); return { ok: true, demo: true }; }
+      return pedir(`/reportes/${id}`, { method: 'DELETE' });
+    },
+
     async reportar(serie, cuerpo) {
       if (demo()) {
         await espera(500);

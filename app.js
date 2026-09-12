@@ -390,7 +390,7 @@ const App = (() => {
       const r = await API.reportar(d.serie, {
         ruta, tipo, especie_sugerida: especie ? especie.codigo : null,
       });
-      if (!r.demo) E.reportadas.set(ruta, tipo);
+      if (!r.demo) E.reportadas.set(ruta, { tipo, id: r.id });
       pintar();
       toast(r.demo
         ? 'En modo demostración el reporte no se envía a ningún lado.'
@@ -490,7 +490,7 @@ const App = (() => {
    * color distinto y la etiqueta dice que. Sin eso la persona no tenia forma
    * de saber si ya lo habia mandado. */
   function botonReportar(ruta) {
-    const tipo = E.reportadas.get(ruta);
+    const tipo = E.reportadas.get(ruta)?.tipo;
     if (!tipo) {
       return `<button class="ico" data-reportar="${esc(ruta)}"
         aria-label="Reportar un problema">${IC.reportar}</button>`;
@@ -923,9 +923,11 @@ const App = (() => {
             <button class="ico" data-bajar="${esc(d.ruta)}" aria-label="Descargar">${IC.bajar}</button>
             <button class="ico" data-compartir="${esc(d.ruta)}" aria-label="Compartir">${IC.compartir}</button>
             ${botonReportar(d.ruta)}
-          </div>${E.reportadas.has(d.ruta) ? `<p class="mini" style="margin:6px 0 0;color:var(--terra)">
-            Ya reportaste este canto: ${esc((API.TIPOS_REPORTE.find((t) => t[0] === E.reportadas.get(d.ruta)) || [])[1] || '')}.
-            Podés volver a reportarlo si te equivocaste.</p>` : ''}</div>`).join('')}
+          </div>${E.reportadas.has(d.ruta) ? `<div class="entre" style="margin-top:8px;gap:8px">
+            <p class="mini" style="margin:0;color:var(--terra);flex:1">
+              Ya reportaste este canto: ${esc((API.TIPOS_REPORTE.find((t) => t[0] === E.reportadas.get(d.ruta).tipo) || [])[1] || '')}.</p>
+            <button class="pill neu" style="border:0;cursor:pointer;flex:none"
+              data-quitar-reporte="${esc(d.ruta)}">Deshacer</button></div>` : ''}</div>`).join('')}
       </div>${barra('cantos')}</div>`;
   };
 
@@ -940,7 +942,7 @@ const App = (() => {
     return `<div class="pantalla con-barra">${cinta()}
       ${encabezado('Estadísticas', { sub: d ? (d.apodo || 'Tector ' + d.serie) : '',
         derecha: `<button class="pill neu" style="border:0;cursor:pointer"
-          data-accion="cambiarDias" aria-label="Cambiar el período">${s.dias} días ▾</button>` })}
+          data-accion="cambiarDias" aria-label="Cambiar el período">${s.dias >= 3650 ? 'Todo' : s.dias + ' días'} ▾</button>` })}
       <div class="scroll">
         <div class="cifras" style="margin-top:14px">
           <div class="cifra"><div class="n">${s.promedio_por_hora != null ? s.promedio_por_hora : s.promedio_por_dia}</div>
@@ -1527,7 +1529,7 @@ const App = (() => {
     E.dispositivos = await API.dispositivos();
     try {
       const r = await API.misReportes();
-      E.reportadas = new Map((r.reportes || []).map((x) => [x.ruta, x.tipo]));
+      E.reportadas = new Map((r.reportes || []).map((x) => [x.ruta, { tipo: x.tipo, id: x.id }]));
     } catch (e) {
       // Sin esto la app anda igual; solo no marca lo ya reportado.
       E.reportadas = new Map();
@@ -1709,6 +1711,26 @@ const App = (() => {
         .then((url) => reproducir(play, url))
         .catch((e) => toast(e.mensaje || 'No se pudo traer el audio.'))
         .finally(() => play.classList.remove('cargando'));
+      return;
+    }
+
+    const quitar = t.closest('[data-quitar-reporte]');
+    if (quitar) {
+      const ruta = quitar.dataset.quitarReporte;
+      const info = E.reportadas.get(ruta);
+      if (!info) return;
+      const ok = await confirmar({
+        titulo: '¿Deshacer el reporte?', seguir: false, peligro: true,
+        confirmar: 'Deshacer', cancelar: 'Cancelar',
+        nota: 'Se borra el reporte y la copia del audio que se había guardado para reentrenar.',
+      });
+      if (!ok) return;
+      try {
+        await API.quitarReporte(info.id);
+        E.reportadas.delete(ruta);
+        pintar();
+        toast('Reporte deshecho.');
+      } catch (err) { toast(err.message, 4500); }
       return;
     }
 
@@ -2045,7 +2067,7 @@ const App = (() => {
      * "30 días" y parecía un botón sin serlo: la gente la tocaba y no pasaba
      * nada. Ahora rota entre las tres ventanas que tienen sentido. */
     if (nombre === 'cambiarDias') {
-      const orden = [7, 30, 90];
+      const orden = [7, 30, 90, 3650];   // 3650 = "Todo" (diez años)
       const actual = E.datos.dias || 30;
       E.datos.dias = orden[(orden.indexOf(actual) + 1) % orden.length];
       E.datos.stats = null;
