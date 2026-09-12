@@ -429,6 +429,21 @@ GUION = r"""
   await dormir(900);
   T('el modo guiado pide el numero de serie', !!document.getElementById('serie'));
   T('explica que la red no tiene contrasena', hay('No tiene contraseña'));
+
+  // La flecha de volver de un paso del asistente. Todos los pasos viven en
+  // #/sync, asi que una flecha que "navegue" a /sync no hace nada: el hash
+  // no cambia y la pantalla tampoco. Paso de verdad (12/9). Se comprueba que
+  // vuelva al inicio del asistente y despues se re-entra al paso.
+  const flecha = document.querySelector('.volver');
+  T('el paso del asistente tiene flecha de volver', !!flecha);
+  if (flecha) {
+    flecha.click();
+    await dormir(400);
+    T('la flecha del asistente vuelve al inicio, no queda muerta',
+      hay('Sincronizar un Tector') && !document.getElementById('serie'));
+    document.querySelector('[data-accion="buscar"]').click();
+    await dormir(900);
+  }
   const inv = document.getElementById('serie');
   if (inv) {
     inv.value = '99';

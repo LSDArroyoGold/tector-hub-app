@@ -116,7 +116,10 @@ const App = (() => {
     setTimeout(() => d.remove(), ms);
   }
 
-  function ir(ruta) { location.hash = '#' + ruta; }
+  function ir(ruta) {
+    if (location.hash === '#' + ruta) { pintar(); return; }
+    location.hash = '#' + ruta;
+  }
 
   function haceCuanto(iso) {
     if (!iso) return 'sin datos';
@@ -529,8 +532,13 @@ const App = (() => {
     return `<span class="pill ${cl}">${c}%</span>`;
   }
 
-  function encabezado(titulo, { volver, sub, derecha = '' } = {}) {
+  function encabezado(titulo, { volver, volverAccion, sub, derecha = '' } = {}) {
+    // volverAccion: para pantallas que son PASOS de una misma ruta (el
+    // asistente de sincronizacion). Ahi "volver" no es navegar, es cambiar
+    // de paso, y una ruta no sirve.
+    if (volverAccion) volver = null;
     return `<header class="enc">
+      ${volverAccion ? `<button class="volver" data-accion="${esc(volverAccion)}" aria-label="Volver">‹</button>` : ''}
       ${volver ? `<button class="volver" data-ir="${esc(volver)}" aria-label="Volver">‹</button>`
                : `<span style="flex:none">${iso(26)}</span>`}
       <h1>${esc(titulo)}${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</h1>
@@ -1247,7 +1255,7 @@ const App = (() => {
 
     if (s.paso === 'buscando') {
       return `<div class="pantalla">
-        ${encabezado('Sincronizar', { volver: '/sync' })}
+        ${encabezado('Sincronizar', { volverAccion: 'syncAtras' })}
         <div class="centro">
           <div class="spin"></div>
           <p class="sec">Buscando tu Tector</p>
@@ -1268,7 +1276,7 @@ const App = (() => {
 
     if (s.paso === 'sinRed') {
       return `<div class="pantalla">
-        ${encabezado('Sincronizar', { volver: '/sync' })}
+        ${encabezado('Sincronizar', { volverAccion: 'syncAtras' })}
         <div class="centro">
           <div class="tilde neu">⏱</div>
           <p class="sec">No encontramos ningún Tector</p>
@@ -1304,7 +1312,7 @@ const App = (() => {
      * se usa el modo automatico de siempre. */
     if (s.paso === 'serie') {
       return `<div class="pantalla">
-        ${encabezado('Sincronizar', { volver: '/sync' })}
+        ${encabezado('Sincronizar', { volverAccion: 'syncAtras' })}
         <div class="scroll">
           <div class="aviso info" style="margin-top:14px"><span class="ic">1</span>
             <div>Abrí los ajustes de WiFi del teléfono y conectate a la red del
@@ -1328,7 +1336,7 @@ const App = (() => {
 
     if (s.paso === 'guiado') {
       return `<div class="pantalla">
-        ${encabezado(`Configurar Tector ${s.serie}`, { volver: '/sync' })}
+        ${encabezado(`Configurar Tector ${s.serie}`, { volverAccion: 'syncAtras' })}
         <div class="scroll">
           <div class="aviso info" style="margin-top:14px"><span class="ic">3</span>
             <div>Abrí la página del Tector y elegí ahí la red WiFi a la que se
@@ -2075,6 +2083,14 @@ const App = (() => {
       E.datos.stats = null;
       pintar();
       E.datos.stats = await API.estadisticas(serie, E.datos.dias);
+      pintar();
+      return;
+    }
+
+    /* Volver dentro del asistente de sincronizacion: al paso inicial. Los
+     * pasos viven todos en #/sync, asi que navegar no sirve. */
+    if (nombre === 'syncAtras') {
+      E.sync = {};
       pintar();
       return;
     }
