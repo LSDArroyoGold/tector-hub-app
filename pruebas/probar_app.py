@@ -291,6 +291,15 @@ GUION = r"""
     document.querySelectorAll('.barras i').length >= 24);
   T('muestra el ranking de especies', !!document.querySelector('.rank'));
   T('ofrece el reporte diario en texto', !!document.querySelector('[data-ir="/reporte"]'));
+  T('muestra el ultimo reporte guardado en un panel', hay('Último reporte diario') && hay('TECTOR HUB'));
+  T('y la carpeta de reportes', !!document.querySelector('[data-ir="/reportes"]'));
+  await irA('#/reportes', 700);
+  T('la carpeta lista los reportes guardados', document.querySelectorAll('[data-ir^="/reporte/"]').length >= 3);
+  T('con boton de descargar todos', !!document.querySelector('[data-accion="descargarTodosReportes"]'));
+  document.querySelector('[data-ir^="/reporte/"]').click();
+  await dormir(800);
+  T('abrir uno de la carpeta muestra su texto', !!document.querySelector('pre') && hay('TECTOR HUB'));
+  T('y su flecha vuelve a la carpeta', document.querySelector('.volver')?.dataset.ir === '/reportes');
 
   // --- reporte diario en texto ---
   await irA('#/reporte', 900);
@@ -300,9 +309,6 @@ GUION = r"""
   T('y compartir', !!document.querySelector('[data-accion="compartirReporte"]'));
   T('tiene selector de dia', !!document.getElementById('fechaReporte'));
   T('sin fotos', !document.querySelector('pre img'));
-  await irA('#/reporte-mail', 600);
-  T('la pantalla de mail tiene la casilla', !!document.getElementById('mailReporte'));
-  T('y dice a que hora se manda', hay('22:30'));
 
   // --- vista combinada ---
   await irA('#/todos');

@@ -1001,10 +1001,26 @@ const App = (() => {
           <div class="cifra"><div class="n">${s.total}</div><div class="d">detecciones en ${s.dias >= 3650 ? 'total' : s.dias + ' días'}</div></div>
           <div class="cifra"><div class="n">${s.confianza_media ?? '—'}%</div><div class="d">confianza media</div></div>
         </div>
-        <span class="rot">Reporte diario</span>
+        <span class="rot">Último reporte diario</span>
+        ${(() => {
+          const g = E.datos.reportesGuardados;
+          const u = g && g.ultimo;
+          if (!u) return `<div class="t"><p class="chico" style="margin:0">Todavía no hay reportes
+            guardados. El servidor arma uno por día a las ${esc(g?.hora || '22:30')}, después de
+            la ventana del atardecer.</p></div>`;
+          /* El panel muestra el arranque del reporte; el resto, en la ficha. */
+          const lineas = u.texto.split(String.fromCharCode(10));
+          const corte = lineas.findIndex((l, i) => i > 4 && l.startsWith('POR HORA'));
+          const resumen = lineas.slice(0, corte > 0 ? corte : 12).join(String.fromCharCode(10)).trim();
+          return `<div class="t" style="padding:0;overflow:hidden">
+            <button class="fila" data-ir="/reporte/${esc(u.fecha)}" style="border:0">
+              <span class="crece" style="font-weight:600">${esc(u.fecha)}</span><span class="chev">›</span></button>
+            <pre style="white-space:pre-wrap;font-size:12px;line-height:1.4;margin:0;padding:0 14px 12px;color:var(--ink2)">${esc(resumen)}</pre></div>`;
+        })()}
         <div class="t cero">
-          <button class="fila" data-ir="/reporte"><span class="crece">Ver el reporte del día en texto</span><span class="chev">›</span></button>
-          <button class="fila" data-ir="/reporte-mail"><span class="crece">Recibirlo por mail todos los días</span><span class="chev">›</span></button>
+          <button class="fila" data-ir="/reportes"><span class="crece">Reportes diarios</span>
+            <span class="mini">${E.datos.reportesGuardados?.fechas?.length || 0} guardados</span><span class="chev">›</span></button>
+          <button class="fila" data-ir="/reporte"><span class="crece">Ver el de hoy hasta ahora</span><span class="chev">›</span></button>
         </div>
       </div>${barra('datos')}</div>`;
   };
@@ -1239,7 +1255,8 @@ const App = (() => {
     const r = E.datos.reporte;
     const fecha = E.datos.reporteFecha || new Date().toISOString().slice(0, 10);
     return `<div class="pantalla">
-      ${encabezado('Reporte diario', { volver: '/datos', sub: d ? (d.apodo || 'Tector ' + d.serie) : '' })}
+      ${encabezado('Reporte diario', { volver: E.datos.reporteDesdeCarpeta ? '/reportes' : '/datos',
+        sub: d ? (d.apodo || 'Tector ' + d.serie) : '' })}
       <div class="scroll">
         <div class="entre" style="margin-top:12px;gap:8px">
           <label class="chico" for="fechaReporte">Día</label>
@@ -1252,6 +1269,27 @@ const App = (() => {
           <button class="b" data-accion="descargarReporte" style="flex:1">Descargar .txt</button>
           <button class="b sec" data-accion="compartirReporte" style="flex:1">Compartir</button>
         </div>`}
+      </div></div>`;
+  };
+
+  /* La carpeta de reportes guardados: uno por dia, se abre cada uno, y se
+   * bajan todos juntos en un zip. Son texto: pesan nada. */
+  P.reportes = () => {
+    const d = activo();
+    const g = E.datos.reportesGuardados;
+    if (!g) return cargando();
+    return `<div class="pantalla">
+      ${encabezado('Reportes diarios', { volver: '/datos', sub: d ? (d.apodo || 'Tector ' + d.serie) : '' })}
+      <div class="scroll">
+        ${g.fechas.length ? `
+        <button class="b" data-accion="descargarTodosReportes" style="width:100%;margin-top:12px">
+          Descargar todos (${g.fechas.length}, en un zip)</button>
+        <div class="t cero" style="margin-top:12px">
+          ${g.fechas.map((f) => `<button class="fila" data-ir="/reporte/${esc(f)}">
+            <span class="crece mono">${esc(f)}</span><span class="chev">›</span></button>`).join('')}
+        </div>` : `<p class="chico" style="margin-top:14px">Todavía no hay reportes guardados.
+          El servidor arma uno por día a las ${esc(g.hora)}, después de la ventana del atardecer,
+          y los de los días anteriores los completa solo.</p>`}
       </div></div>`;
   };
 
@@ -1625,9 +1663,21 @@ const App = (() => {
 
       const serie = E.activo;
 
-      if (ruta === '/reporte') {
-        const fecha = E.datos.reporteFecha || new Date().toISOString().slice(0, 10);
-        E.datos.reporteFecha = fecha;
+      if (ruta === '/reportes') {
+        E.datos.reportesGuardados = await API.reportesGuardados(serie);
+        app.innerHTML = P.reportes(); return enlazar();
+      }
+      if (ruta === '/reporte' || (partes[0] === 'reporte' && partes.length === 2)) {
+        // /reporte = el de hoy (se arma en el momento); /reporte/<fecha> = uno
+        // de la carpeta.
+        if (partes.length === 2) {
+          E.datos.reporteFecha = decodeURIComponent(partes[1]);
+          E.datos.reporteDesdeCarpeta = true;
+        } else {
+          E.datos.reporteFecha = new Date().toISOString().slice(0, 10);
+          E.datos.reporteDesdeCarpeta = false;
+        }
+        const fecha = E.datos.reporteFecha;
         if (E.datos.reporte == null || E.datos.reporteDe !== fecha) {
           E.datos.reporte = null;
           app.innerHTML = P.reporte(); enlazar();
@@ -1672,7 +1722,10 @@ const App = (() => {
         E.datos.dets = await API.detecciones(serie, { fecha, especie, limite: 500 });
         app.innerHTML = P.cantosEspecie(fecha, especie);
       } else if (ruta === '/datos') {
-        E.datos.stats = await API.estadisticas(serie, E.datos.dias || 30);
+        [E.datos.stats, E.datos.reportesGuardados] = await Promise.all([
+          API.estadisticas(serie, E.datos.dias || 30),
+          API.reportesGuardados(serie).catch(() => null),
+        ]);
         app.innerHTML = P.datos();
       } else if (ruta === '/cuenta') {
         app.innerHTML = P.cuenta();
@@ -2176,6 +2229,13 @@ const App = (() => {
       } else {
         toast('Este navegador no puede compartir. Usá descargar.', 4500);
       }
+      return;
+    }
+
+    if (nombre === 'descargarTodosReportes') {
+      const d = activo();
+      const r = await traer(API.rutaReportesZip(d.serie), `reportes-tector-${d.serie}.zip`, 'Armando el zip…');
+      if (r) guardarBlob(r.blob, r.nombre);
       return;
     }
 

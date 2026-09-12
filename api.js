@@ -479,6 +479,21 @@ const API = (() => {
       return resp.text();
     },
 
+    /* La carpeta de reportes guardados: fechas + el ultimo entero. */
+    async reportesGuardados(serie) {
+      if (demo()) {
+        await espera(250);
+        const ayer = fechaISO(1);
+        return { fechas: [ayer, fechaISO(2), fechaISO(3)], hora: '22:30',
+                 ultimo: { fecha: ayer, texto: await this.reporteTexto(serie, ayer) } };
+      }
+      return pedir(`/dispositivos/${serie}/reportes-diarios`);
+    },
+
+    rutaReportesZip(serie) {
+      return `/dispositivos/${serie}/reportes-diarios/todos`;
+    },
+
     async reporteDiario() {
       if (demo()) return { email: '', hora: '22:30', correo_configurado: false };
       return pedir('/cuenta/reporte-diario');
