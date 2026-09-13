@@ -1133,10 +1133,13 @@ const App = (() => {
     return `<div class="pantalla">
       ${encabezado('Horarios', { volver: '/', sub: d ? (d.apodo || '#' + d.serie) : '' })}
       <div class="scroll">
+        ${E.datos.horariosDesconocidos ? `<div class="aviso cuidado" style="margin-top:14px"><span class="ic">!</span>
+          <div>Este Tector todavía no publicó sus horarios: no hay nada en Drive ni en su
+          estado. Lo que se muestra abajo son valores por defecto, <b>no los del equipo</b>.</div></div>` : ''}
         <div class="t" style="margin-top:14px"><div class="entre">
           <div style="flex:1"><div class="sec">Sincronización automática</div>
             <p class="mini" style="margin:2px 0 0">${h.auto_sync
-              ? 'El inicio y el fin siguen el amanecer y el atardecer reales de la ubicación del Tector.'
+              ? 'El Tector calcula el amanecer y el atardecer astronómicos de sus coordenadas, cada día, y arma las ventanas a partir de ahí.'
               : 'Definís vos cada ventana a mano.'}</p></div>
           <button class="sw" role="switch" aria-checked="${h.auto_sync}"
             data-accion="autoSync" aria-label="Sincronización automática"></button>
@@ -1144,8 +1147,25 @@ const App = (() => {
         ${ventana('amanecer', 'amanecer', h.inicio_amanecer, h.duracion_amanecer_h, finAm)}
         ${ventana('atardecer', 'atardecer', h.inicio_atardecer, h.duracion_atardecer_h, finAt)}
         ${h.auto_sync ? `<div class="aviso info"><span class="ic">🔒</span>
-          <div>El inicio y el fin los calcula el Tector cada día. La duración
-          la elegís vos.</div></div>` : ''}
+          <div>Los inicios que ves son los <b>calculados astronómicamente</b> por el Tector
+          para hoy, con ${h.offset_amanecer_min || h.offset_atardecer_min
+            ? `un corrimiento de ${h.offset_amanecer_min} min tras el amanecer y ${h.offset_atardecer_min} min tras el atardecer`
+            : 'sin corrimiento'}. Cambian solos día a día. La duración la elegís vos.</div></div>` : ''}
+        <span class="rot">Coordenadas del Tector</span>
+        <div class="t">
+          <div style="display:flex;gap:9px">
+            <div class="campo" style="flex:1;margin:0"><label for="c-lat">Latitud</label>
+              <input id="c-lat" type="number" step="0.0001" min="-90" max="90" inputmode="decimal"
+                value="${h.lat ?? ''}" data-campo="lat" placeholder="-34.6131"></div>
+            <div class="campo" style="flex:1;margin:0"><label for="c-lon">Longitud</label>
+              <input id="c-lon" type="number" step="0.0001" min="-180" max="180" inputmode="decimal"
+                value="${h.lon ?? ''}" data-campo="lon" placeholder="-58.3772"></div>
+          </div>
+          <p class="mini" style="margin:8px 0 0">${h.lat != null && h.lon != null
+            ? 'Con estas coordenadas el Tector calcula el amanecer y el atardecer.'
+            : 'El Tector usa las coordenadas que se cargaron al instalarlo, que la app no puede leer. Si las cargás acá, pasa a usar estas.'}
+            Los cambios rigen desde la próxima ventana.</p>
+        </div>
         <button class="b" data-accion="guardarHorarios" ${E.datos.horariosSucio ? '' : 'disabled'}>
           Aplicar cambios</button>
       </div></div>`;
@@ -1730,16 +1750,36 @@ const App = (() => {
       } else if (ruta === '/horarios') {
         if (!E.datos.horariosForm) {
           const h = await API.horarios(serie);
-          const v = h.en_dispositivo || {};
-          E.datos.horariosOriginal = {
+          /* Primero lo que el equipo dice que corre (estado.json, 2.1). Si
+           * no publica estado --un 1.1--, lo que hay en su config_horarios.txt
+           * de Drive, que es exactamente lo que el equipo lee. Antes, sin
+           * estado, esto caia a 08:00 / 18:00 / automatico apagado: valores
+           * INVENTADOS que se mostraban como si fueran los del Tector, y que
+           * un "Aplicar" habria escrito en el equipo, apagandole el
+           * autosync. */
+          const v = h.en_dispositivo;
+          const d = h.en_drive || {};
+          const num = (x, def) => (x == null || x === '' || isNaN(Number(x))) ? def : Number(x);
+          E.datos.horariosOriginal = v ? {
             auto_sync: !!v.auto_sync,
-            inicio_amanecer: v.amanecer?.inicio || '08:00',
-            duracion_amanecer_h: Number(v.duracion_amanecer_h || 2),
-            inicio_atardecer: v.atardecer?.inicio || '18:00',
-            duracion_atardecer_h: Number(v.duracion_atardecer_h || 2),
-            offset_amanecer_min: Number(v.offset_amanecer_min || 0),
-            offset_atardecer_min: Number(v.offset_atardecer_min || 0),
+            inicio_amanecer: v.amanecer?.inicio || '',
+            duracion_amanecer_h: num(v.duracion_amanecer_h, 2),
+            inicio_atardecer: v.atardecer?.inicio || '',
+            duracion_atardecer_h: num(v.duracion_atardecer_h, 2),
+            offset_amanecer_min: num(v.offset_amanecer_min, 0),
+            offset_atardecer_min: num(v.offset_atardecer_min, 0),
+          } : {
+            auto_sync: String(d.AUTO_SYNC || '').toUpperCase() === 'ON',
+            inicio_amanecer: d.INICIO_AMANECER || '',
+            duracion_amanecer_h: num(d.DURACION_AMANECER_SYNC, 2),
+            inicio_atardecer: d.INICIO_ATARDECER || '',
+            duracion_atardecer_h: num(d.DURACION_ATARDECER_SYNC, 2),
+            offset_amanecer_min: num(d.OFFSET_AMANECER_SYNC, 0),
+            offset_atardecer_min: num(d.OFFSET_ATARDECER_SYNC, 0),
           };
+          E.datos.horariosOriginal.lat = h.coordenadas?.lat ?? null;
+          E.datos.horariosOriginal.lon = h.coordenadas?.lon ?? null;
+          E.datos.horariosDesconocidos = !v && !d.INICIO_AMANECER;
           E.datos.horariosForm = { ...E.datos.horariosOriginal };
           E.datos.horariosSucio = false;
         }
@@ -1797,7 +1837,11 @@ const App = (() => {
     app.querySelectorAll('[data-campo]').forEach((i) => {
       i.addEventListener('input', () => {
         const c = i.dataset.campo;
-        E.datos.horariosForm[c] = i.type === 'number' ? Number(i.value) : i.value;
+        // Un numero vacio es "sin valor", no cero: una latitud borrada tiene
+        // que quedar en null, no mandarse como 0 (que es un punto real, en
+        // el golfo de Guinea).
+        E.datos.horariosForm[c] = i.type === 'number'
+          ? (i.value === '' ? null : Number(i.value)) : i.value;
         E.datos.horariosSucio = JSON.stringify(E.datos.horariosForm)
           !== JSON.stringify(E.datos.horariosOriginal);
         refrescarHorarios();
@@ -2124,6 +2168,15 @@ const App = (() => {
             `${iO}–${sumarHoras(iO, dO)} → ${iN}–${sumarHoras(iN, dN)}`]);
         }
       });
+      const coord = (x) => (x === '' || x == null || isNaN(Number(x))) ? null : Number(x);
+      n.lat = coord(n.lat); n.lon = coord(n.lon);
+      if ((n.lat == null) !== (n.lon == null)) {
+        toast('Cargá las dos coordenadas, o ninguna.', 4000);
+        return;
+      }
+      if (n.lat !== o.lat || n.lon !== o.lon) {
+        cambios.push(['Coordenadas', `${o.lat ?? '—'}, ${o.lon ?? '—'} → ${n.lat ?? '—'}, ${n.lon ?? '—'}`]);
+      }
       const est = activo()?.estado;
       const cuando = est?.proxima_ventana?.hora;
       const ok = await confirmar({

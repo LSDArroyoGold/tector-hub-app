@@ -343,7 +343,8 @@ const API = (() => {
     async horarios(serie) {
       if (demo()) {
         await espera();
-        return { en_drive: {}, en_dispositivo: estadoDemo(serie, 'espera').horarios };
+        return { en_drive: {}, en_dispositivo: estadoDemo(serie, 'espera').horarios,
+                 coordenadas: { lat: -34.6131, lon: -58.3772 }, firmware: '2.1' };
       }
       return pedir(`/dispositivos/${serie}/horarios`);
     },
