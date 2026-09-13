@@ -310,6 +310,12 @@ GUION = r"""
   T('tiene selector de dia', !!document.getElementById('fechaReporte'));
   T('sin fotos', !document.querySelector('pre img'));
 
+  // El atajo a horarios estaba condicionado a que el equipo publicara los
+  // suyos, y un 1.1 no lo hace: la pantalla quedaba escondida. Tiene que
+  // estar siempre.
+  await irA('#/');
+  T('inicio tiene atajo a horarios', !!document.querySelector('[data-ir="/horarios"]'));
+
   // --- vista combinada ---
   await irA('#/todos');
   T('la vista combinada lista los 3 Tectors',

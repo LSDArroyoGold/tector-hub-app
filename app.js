@@ -707,13 +707,19 @@ const App = (() => {
 
   function panelHorarios(e) {
     const h = e.horarios;
-    if (!h) return '';
+    /* Antes esto devolvia '' cuando el equipo no publica sus horarios, que
+     * es justo lo que pasa con un 1.1: el unico atajo a la pantalla de
+     * horarios desaparecia y quedaba escondida adentro de la ficha del
+     * dispositivo. Ahora el atajo esta siempre; lo que cambia es si se
+     * pueden previsualizar los horarios o no. */
     return `<button class="t" style="display:block;width:100%;text-align:left;cursor:pointer"
       data-ir="/horarios">
-      <div class="entre"><span class="rot" style="margin:0">Horarios</span>
-        <span class="pill ${h.auto_sync ? 'ok' : 'neu'}">${h.auto_sync ? 'Automático' : 'Manual'}</span></div>
+      <div class="entre"><span class="rot" style="margin:0">Horarios de grabación</span>
+        ${h ? `<span class="pill ${h.auto_sync ? 'ok' : 'neu'}">${h.auto_sync ? 'Automático' : 'Manual'}</span>`
+            : '<span class="chev">›</span>'}</div>
       <div class="mono" style="font-size:13px;margin-top:5px">
-        ${esc(h.amanecer?.inicio)}–${esc(h.amanecer?.fin)} · ${esc(h.atardecer?.inicio)}–${esc(h.atardecer?.fin)}</div>
+        ${h ? `${esc(h.amanecer?.inicio)}–${esc(h.amanecer?.fin)} · ${esc(h.atardecer?.inicio)}–${esc(h.atardecer?.fin)}`
+            : '<span class="chico" style="font-family:inherit">Ver y cambiar las ventanas de grabación</span>'}</div>
     </button>`;
   }
 
