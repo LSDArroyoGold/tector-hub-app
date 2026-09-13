@@ -946,7 +946,6 @@ const App = (() => {
     const max = Math.max(...s.histograma_horas, 1);
     const maxEsp = s.top_especies[0]?.detecciones || 1;
     const maxDia = Math.max(...s.por_fecha.map((x) => x.detecciones), 1);
-    const h = s.hallazgos?.[0];
     return `<div class="pantalla con-barra">${cinta()}
       ${encabezado('Estadísticas', { sub: d ? (d.apodo || 'Tector ' + d.serie) : '',
         derecha: `<button class="pill neu" style="border:0;cursor:pointer"
@@ -959,15 +958,6 @@ const App = (() => {
               : 'detecciones por día'}</div></div>
           <div class="cifra"><div class="n">${s.especies_distintas}</div><div class="d">especies distintas</div></div>
         </div>
-        ${h ? `<span class="rot">Hallazgo destacado</span>
-        <div class="t" style="border-color:var(--terra)">
-          <div class="nomb" style="font-size:15px">${esc(h.especie)}</div>
-          <p class="chico" style="margin:4px 0 0">Primera vez en esta estación.
-            Registrada el ${esc(h.fecha)} a las ${esc(h.hora.slice(0, 5))}
-            con ${h.confianza}% de confianza.</p>
-          ${h.ruta ? ondaHTML(h.ruta) : `<p class="mini" style="margin:6px 0 0">
-            El audio de ese día ya no está en Drive. La detección se conserva
-            en el resumen diario, pero no se puede escuchar.</p>`}</div>` : ''}
         ${s.dias_sin_audio?.length ? `<div class="aviso" style="margin-top:12px">
           <span class="ic">i</span><div>${s.dias_sin_audio.length === 1
             ? 'Hay 1 día'

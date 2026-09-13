@@ -320,7 +320,6 @@ const API = (() => {
           porFecha[d.fecha] = (porFecha[d.fecha] || 0) + 1;
         });
         const conf = l.map((d) => d.confianza);
-        const nuevas = l.filter((d) => d.especie === 'Masked Gnatcatcher').slice(-1);
         return {
           dias, total: l.length,
           promedio_por_dia: +(l.length / Object.keys(porFecha).length).toFixed(1),
@@ -331,10 +330,6 @@ const API = (() => {
           por_fecha: Object.entries(porFecha).sort()
             .map(([fecha, detecciones]) => ({ fecha, detecciones })),
           confianza_media: +(conf.reduce((a, b) => a + b, 0) / conf.length).toFixed(1),
-          hallazgos: nuevas.map((d) => ({
-            especie: d.especie, fecha: d.fecha, hora: d.hora,
-            confianza: d.confianza, ruta: d.ruta, desde_resumen: false,
-          })),
           /* Dias que cuentan en las estadisticas pero cuyo audio ya no esta
            * en Drive. En la demostracion siempre esta todo, asi que va
            * vacio: se declara igual para que la forma sea la misma que la
